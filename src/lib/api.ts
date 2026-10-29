@@ -75,6 +75,10 @@ class ApiClient {
     return this.request<{ records: FormRecord[] }>('/records');
   }
 
+  getRecord(id: string) {
+    return this.request<FormRecord>(`/records/${id}`);
+  }
+
   createRecord(record: RecordInput) {
     return this.request<FormRecord>('/records', {
       method: 'POST',

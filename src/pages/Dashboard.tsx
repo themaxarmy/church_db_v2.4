@@ -19,6 +19,7 @@ import {
   ChevronDown,
   ChevronRight,
   Phone,
+  Pencil,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useFormRecords } from '../hooks/useFormRecords';
@@ -406,6 +407,13 @@ export const Dashboard: React.FC = () => {
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-1">
+                                    <Link
+                                      to={`/records/${record.id}/edit`}
+                                      className="p-1 text-gray-400 hover:text-green-700 transition-colors"
+                                      title="Edit record"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Link>
                                     <button
                                       onClick={() => handleArchive(record.id, !record.archivedAt)}
                                       className="p-1 text-gray-400 hover:text-gray-700 transition-colors"

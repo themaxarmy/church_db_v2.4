@@ -37,7 +37,7 @@ New sign-ups start as `pending`; a super admin approves them on the Users page.
 | Route | Who |
 | --- | --- |
 | `POST /api/records` | Anyone (public form, rate-limited) |
-| `GET /api/records` | Approved users |
+| `GET /api/records`, `GET /api/records/:id` | Approved users |
 | `PUT`/`DELETE /api/records/:id` | Approved admins and super admins |
 | `PATCH /api/records/:id/archive`, `/restore` | Approved admins and super admins |
 | `/api/users/*` | Approved super admins |

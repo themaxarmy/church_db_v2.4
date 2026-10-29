@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { DataCollection } from './pages/DataCollection';
 import { AuthPage } from './pages/AuthPage';
 import { UserManagement } from './pages/UserManagement';
+import { EditRecord } from './pages/EditRecord';
 
 function App() {
   return (
@@ -30,11 +31,22 @@ function App() {
             } 
           />
           
+          <Route
+            path="/records/:id/edit"
+            element={
+              <ProtectedRoute>
+                <AuthorizedRoute roles={['admin', 'super_admin']}>
+                  <EditRecord />
+                </AuthorizedRoute>
+              </ProtectedRoute>
+            }
+          />
+
           <Route 
             path="/users" 
             element={
               <ProtectedRoute>
-                <AuthorizedRoute role="super_admin">
+                <AuthorizedRoute roles={['super_admin']}>
                   <UserManagement />
                 </AuthorizedRoute>
               </ProtectedRoute>

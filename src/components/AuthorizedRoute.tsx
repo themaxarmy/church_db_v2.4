@@ -5,11 +5,12 @@ import type { UserRole } from '../types';
 
 interface AuthorizedRouteProps {
   children: React.ReactNode;
-  role?: UserRole;
+  // Any of these roles may view the page. Omit to allow every approved user.
+  roles?: UserRole[];
 }
 
 // UI gate only — the server enforces the same rules on every request.
-export const AuthorizedRoute: React.FC<AuthorizedRouteProps> = ({ children, role }) => {
+export const AuthorizedRoute: React.FC<AuthorizedRouteProps> = ({ children, roles }) => {
   const { user, signOut } = useAuth();
 
   if (!user) return null; // ProtectedRoute handles the redirect
@@ -43,7 +44,7 @@ export const AuthorizedRoute: React.FC<AuthorizedRouteProps> = ({ children, role
     );
   }
 
-  if (role && user.role !== role) {
+  if (roles && !roles.includes(user.role)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

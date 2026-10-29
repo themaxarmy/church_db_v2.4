@@ -219,10 +219,14 @@ const cleanRecord = (body, { partial }) => {
     emergencyContactPhone: cleanPhone(body?.emergencyContactPhone, 'Emergency contact phone'),
     emergencyContactRelationship: cleanText(body?.emergencyContactRelationship, 'Emergency contact relationship', false, 100),
   };
-  if (!partial && ageOn(record.dateOfBirth) < 18 && !(record.guardianName && record.guardianPhone)) {
+  if (!partial) requireGuardianIfMinor(record);
+  return record;
+};
+
+const requireGuardianIfMinor = (record) => {
+  if (ageOn(record.dateOfBirth) < 18 && !(record.guardianName && record.guardianPhone)) {
     throw new HttpError(400, "A parent or guardian's name and phone are required for anyone under 18");
   }
-  return record;
 };
 
 // --- Routes ---
@@ -288,12 +292,24 @@ api.post('/records', submitLimiter, route(async (req, res) => {
   res.status(201).json(record);
 }));
 
+api.get('/records/:id', requireAuth, requireApproved, route(async (req, res) => {
+  const record = await records.findById(requireUuid(req.params.id));
+  if (!record) throw new HttpError(404, 'Record not found');
+  res.json(record);
+}));
+
 api.put('/records/:id', requireAuth, requireAdmin, route(async (req, res) => {
+  const id = requireUuid(req.params.id);
   const updates = cleanRecord(req.body, { partial: true });
   if (updates.firstName === null || updates.lastName === null) {
     throw new HttpError(400, 'First and last name cannot be removed');
   }
-  const record = await records.update(requireUuid(req.params.id), updates, req.user.id);
+  const existing = await records.findById(id);
+  if (!existing) throw new HttpError(404, 'Record not found');
+  const changed = Object.fromEntries(Object.entries(updates).filter(([, value]) => value !== undefined));
+  requireGuardianIfMinor({ ...existing, ...changed });
+
+  const record = await records.update(id, updates, req.user.id);
   if (!record) throw new HttpError(404, 'Record not found');
   res.json(record);
 }));

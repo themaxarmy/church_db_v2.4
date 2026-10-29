@@ -131,6 +131,7 @@ Archived records stay in the database but are hidden from the dashboard unless y
 | `/collect` | Anyone | Public form for submitting a record |
 | `/auth/login`, `/auth/signup` | Anyone | Staff sign in and sign up |
 | `/` | Approved users | Dashboard: search records, view details and export CSV. Admins can also archive, restore and delete records. |
+| `/records/:id/edit` | Admins and super admins | Edit a record (the pencil icon on the dashboard) |
 | `/users` | Super admins | Approve or reject sign-ups and change roles |
 
 **Roles**
