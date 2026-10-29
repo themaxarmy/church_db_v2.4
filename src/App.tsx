@@ -1,10 +1,9 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext'; // Custom Auth Context for local Postgres
+import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthorizedRoute } from './components/AuthorizedRoute';
 import { Dashboard } from './pages/Dashboard';
-import { DataCollection } from './pages/DataCollection'; // Replaces SupabaseDataCollection
+import { DataCollection } from './pages/DataCollection';
 import { AuthPage } from './pages/AuthPage';
 import { UserManagement } from './pages/UserManagement';
 
@@ -35,7 +34,7 @@ function App() {
             path="/users" 
             element={
               <ProtectedRoute>
-                <AuthorizedRoute>
+                <AuthorizedRoute role="super_admin">
                   <UserManagement />
                 </AuthorizedRoute>
               </ProtectedRoute>

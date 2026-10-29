@@ -1,15 +1,68 @@
 import React, { useState } from 'react';
 import { Upload, Save, CheckCircle, AlertCircle, ArrowLeft, Database, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
+import type { Gender, RecordInput } from '../types';
+
+const EMPTY_FORM: RecordInput = {
+  firstName: '',
+  lastName: '',
+  otherNames: '',
+  dateOfBirth: '',
+  picture: null,
+  gender: null,
+  phone: '',
+  email: '',
+  address: '',
+  ministry: '',
+  guardianName: '',
+  guardianPhone: '',
+  emergencyContactName: '',
+  emergencyContactPhone: '',
+  emergencyContactRelationship: '',
+};
+
+type TextFieldName = Exclude<keyof RecordInput, 'picture' | 'gender'>;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^\+?[0-9 ()\-.]{6,30}$/;
+const PHONE_FIELDS = ['phone', 'guardianPhone', 'emergencyContactPhone'] as const;
+
+const ageOn = (dateOfBirth: string, today = new Date()) => {
+  const [year, month, day] = dateOfBirth.split('-').map(Number);
+  const hadBirthday = today.getMonth() + 1 > month || (today.getMonth() + 1 === month && today.getDate() >= day);
+  return today.getFullYear() - year - (hadBirthday ? 0 : 1);
+};
+
+const inputClass = (error?: string) =>
+  `w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg ${
+    error ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+  }`;
+
+const FieldError: React.FC<{ message?: string }> = ({ message }) =>
+  message ? (
+    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+      <AlertCircle className="w-4 h-4" />
+      {message}
+    </p>
+  ) : null;
+
+const FieldLabel: React.FC<{ label: string; required?: boolean }> = ({ label, required }) => (
+  <label className="block text-sm font-semibold text-gray-700 mb-3">
+    {label}
+    {required ? ' *' : <span className="text-gray-500 font-normal ml-1">(Optional)</span>}
+  </label>
+);
+
+const SectionHeading: React.FC<{ title: string; note?: string }> = ({ title, note }) => (
+  <div className="pt-6 border-t border-gray-200">
+    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+    {note && <p className="text-sm text-gray-600 mt-1">{note}</p>}
+  </div>
+);
 
 export const DataCollection: React.FC = () => {
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    otherNames: '',
-    dateOfBirth: '',
-    picture: null as string | null,
-  });
+  const [formData, setFormData] = useState<RecordInput>(EMPTY_FORM);
 
   const [dragActive, setDragActive] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -17,7 +70,9 @@ export const DataCollection: React.FC = () => {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [submitMessage, setSubmitMessage] = useState('');
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const isMinor = Boolean(formData.dateOfBirth) && ageOn(formData.dateOfBirth) < 18;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
@@ -29,7 +84,7 @@ export const DataCollection: React.FC = () => {
   };
 
   const handleImageUpload = (file: File) => {
-    if (file && file.type.startsWith('image/')) {
+    if (file && ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
         setErrors(prev => ({ ...prev, picture: 'Image size must be less than 5MB' }));
         return;
@@ -75,6 +130,18 @@ export const DataCollection: React.FC = () => {
     if (formData.dateOfBirth && new Date(formData.dateOfBirth) > new Date()) {
       newErrors.dateOfBirth = 'Date of birth cannot be in the future';
     }
+
+    if (isMinor) {
+      if (!formData.guardianName.trim()) newErrors.guardianName = 'Required for anyone under 18';
+      if (!formData.guardianPhone.trim()) newErrors.guardianPhone = 'Required for anyone under 18';
+    }
+    for (const field of PHONE_FIELDS) {
+      const value = formData[field].trim();
+      if (value && !PHONE_RE.test(value)) newErrors[field] = 'Enter a valid phone number';
+    }
+    if (formData.email.trim() && !EMAIL_RE.test(formData.email.trim())) {
+      newErrors.email = 'Enter a valid email address';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -91,26 +158,17 @@ export const DataCollection: React.FC = () => {
     setSubmitStatus('idle');
 
     try {
-      await apiClient.createRecord({
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        otherNames: formData.otherNames.trim() || '',
-        dateOfBirth: formData.dateOfBirth,
-        picture: formData.picture,
-      });
+      const trimmed = Object.fromEntries(
+        Object.entries(formData).map(([key, value]) => [key, typeof value === 'string' ? value.trim() : value]),
+      ) as RecordInput;
+      await apiClient.createRecord(trimmed);
 
       setSubmitStatus('success');
       setSubmitMessage('Your information has been submitted successfully!');
       
       // Reset form after successful submission
       setTimeout(() => {
-        setFormData({
-          firstName: '',
-          lastName: '',
-          otherNames: '',
-          dateOfBirth: '',
-          picture: null,
-        });
+        setFormData(EMPTY_FORM);
         setSubmitStatus('idle');
       }, 3000);
 
@@ -133,16 +191,26 @@ export const DataCollection: React.FC = () => {
   };
 
   const resetForm = () => {
-    setFormData({
-      firstName: '',
-      lastName: '',
-      otherNames: '',
-      dateOfBirth: '',
-      picture: null,
-    });
+    setFormData(EMPTY_FORM);
     setErrors({});
     setSubmitStatus('idle');
   };
+
+  const textField = (name: TextFieldName, label: string, options: { type?: string; placeholder?: string; required?: boolean } = {}) => (
+    <div>
+      <FieldLabel label={label} required={options.required} />
+      <input
+        type={options.type ?? 'text'}
+        name={name}
+        value={formData[name]}
+        onChange={handleInputChange}
+        className={inputClass(errors[name])}
+        placeholder={options.placeholder}
+        disabled={isSubmitting}
+      />
+      <FieldError message={errors[name]} />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50">
@@ -158,16 +226,16 @@ export const DataCollection: React.FC = () => {
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
                   Data Collection Form
                 </h1>
-                <p className="text-sm text-gray-600">Secure database submission</p>
+                <p className="text-sm text-gray-600">Holy Hill Records</p>
               </div>
             </div>
-            <a
-              href="/"
+            <Link
+              to="/"
               className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Back to Dashboard</span>
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -180,7 +248,7 @@ export const DataCollection: React.FC = () => {
               Submit Your Information
             </h2>
             <p className="text-lg text-gray-600 mb-6">
-              Please fill out the form below with your personal details. All information is securely stored in our MongoDB Atlas database with enterprise-grade security.
+              Please fill out the form below with your personal details. Your details will be added to the Holy Hill church records.
             </p>
             
             {/* Privacy Notice */}
@@ -190,8 +258,7 @@ export const DataCollection: React.FC = () => {
                 <div className="text-left">
                   <h3 className="font-semibold text-blue-900 mb-1">Privacy & Security</h3>
                   <p className="text-sm text-blue-800">
-                    Your personal information is protected by industry-standard encryption and will only be used for the intended purpose. 
-                    We comply with data protection regulations and maintain strict confidentiality.
+                    Your information is only visible to approved church administrators and will only be used for church record-keeping.
                   </p>
                 </div>
               </div>
@@ -313,7 +380,64 @@ export const DataCollection: React.FC = () => {
                 )}
               </div>
 
+              {/* Gender */}
+              <div>
+                <FieldLabel label="Gender" />
+                <select
+                  name="gender"
+                  value={formData.gender ?? ''}
+                  onChange={e => setFormData(prev => ({ ...prev, gender: (e.target.value || null) as Gender | null }))}
+                  className={inputClass()}
+                  disabled={isSubmitting}
+                >
+                  <option value="">Prefer not to say</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+
+              {/* Church */}
+              {textField('ministry', 'Ministry or Group', { placeholder: 'e.g. Teens, Choir, Ushers' })}
+
+              {/* Contact */}
+              <SectionHeading title="Contact Details" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {textField('phone', 'Phone', { type: 'tel', placeholder: 'Your phone number' })}
+                {textField('email', 'Email', { type: 'email', placeholder: 'you@example.com' })}
+              </div>
+              <div>
+                <FieldLabel label="Address" />
+                <textarea
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  rows={2}
+                  className={inputClass(errors.address)}
+                  placeholder="Street, town, postcode"
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              {/* Parent / Guardian */}
+              <SectionHeading
+                title="Parent or Guardian"
+                note={isMinor ? 'Required because you are under 18.' : 'Required for anyone under 18.'}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {textField('guardianName', 'Name', { placeholder: 'Parent or guardian name', required: isMinor })}
+                {textField('guardianPhone', 'Phone', { type: 'tel', placeholder: 'Parent or guardian phone', required: isMinor })}
+              </div>
+
+              {/* Emergency Contact */}
+              <SectionHeading title="Emergency Contact" note="Someone we can call in an emergency." />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {textField('emergencyContactName', 'Name', { placeholder: 'Full name' })}
+                {textField('emergencyContactPhone', 'Phone', { type: 'tel', placeholder: 'Phone number' })}
+              </div>
+              {textField('emergencyContactRelationship', 'Relationship', { placeholder: 'e.g. Mother, Uncle, Friend' })}
+
               {/* Picture Upload */}
+              <SectionHeading title="Photo" />
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Profile Picture
@@ -360,7 +484,7 @@ export const DataCollection: React.FC = () => {
                         Drag and drop an image here, or click to select
                       </p>
                       <p className="text-sm text-gray-500 mb-4">
-                        Supports JPG, PNG, GIF up to 5MB
+                        Supports JPG, PNG, GIF, WebP up to 5MB
                       </p>
                       <input
                         type="file"
@@ -410,7 +534,7 @@ export const DataCollection: React.FC = () => {
                   ) : (
                     <>
                       <Save className="w-5 h-5" />
-                      Submit to Database
+                      Submit
                     </>
                   )}
                 </button>
@@ -421,8 +545,7 @@ export const DataCollection: React.FC = () => {
           {/* Footer Information */}
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-500">
-              By submitting this form, you acknowledge that your information will be stored securely 
-              in our MongoDB Atlas database and used in accordance with our privacy policy.
+              By submitting this form, you agree to your information being stored in the Holy Hill church records.
             </p>
           </div>
         </div>

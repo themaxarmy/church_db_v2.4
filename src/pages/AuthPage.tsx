@@ -52,9 +52,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
       } else if (mode === 'reset') {
         setSuccess('Password reset email sent! Check your inbox.');
       } else if (mode === 'signup') {
-        setSuccess('Account created successfully! Please check your email to verify your account.');
+        setSuccess('Account created! An administrator needs to approve it before you can view records.');
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -91,16 +91,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
                 <h1 className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                   Holy Hill Records
                 </h1>
-                <p className="text-sm text-gray-600">Supabase Authentication</p>
+                <p className="text-sm text-gray-600">Staff Sign In</p>
               </div>
             </div>
-            <a
-              href="/collect"
+            <Link
+              to="/collect"
               className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Public Form</span>
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -112,10 +112,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
             <div className="flex items-start gap-3">
               <Shield className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
               <div>
-                <h3 className="font-semibold text-green-900 mb-1">Secure Authentication</h3>
+                <h3 className="font-semibold text-green-900 mb-1">Approval Required</h3>
                 <p className="text-sm text-green-800">
-                  Protected by Supabase's enterprise-grade security with Row Level Security (RLS) 
-                  and PostgreSQL reliability.
+                  New accounts must be approved by an administrator before records can be viewed.
                 </p>
               </div>
             </div>
@@ -178,7 +177,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
                       className="w-full pl-10 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-lg"
                       placeholder="Enter your password"
                       required
-                      minLength={6}
+                      minLength={mode === 'signup' ? 8 : undefined}
                       disabled={isSubmitting}
                     />
                     <button
@@ -261,8 +260,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
           {/* Footer */}
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-500">
-              By signing in, you agree to our terms of service and privacy policy.
-              Your data is protected by Supabase's enterprise-grade security.
+              Access to records is limited to approved church administrators.
             </p>
           </div>
         </div>

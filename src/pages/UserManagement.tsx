@@ -3,26 +3,27 @@ import {
   Users, 
   UserCheck, 
   UserX, 
-  Shield, 
   Mail, 
   Calendar,
   Search,
   Filter,
   ArrowLeft,
-  Settings,
   Clock,
   CheckCircle,
   XCircle
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserManagement } from '../hooks/useUserManagement';
+import type { UserRole, UserStatus } from '../types';
 
 export const UserManagement: React.FC = () => {
   const { user } = useAuth();
-  const { users, loading, approveUser, rejectUser, updateUserRole } = useUserManagement();
+  const { users, loading, error, approveUser, rejectUser, updateUserRole } = useUserManagement();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | UserStatus>('all');
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const filteredUsers = users.filter(userItem => {
     const matchesSearch = userItem.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -33,9 +34,10 @@ export const UserManagement: React.FC = () => {
   const handleApprove = async (userId: string) => {
     try {
       setIsProcessing(userId);
+      setActionError(null);
       await approveUser(userId);
     } catch (error) {
-      console.error('Failed to approve user:', error);
+      setActionError(error instanceof Error ? error.message : 'Failed to approve user');
     } finally {
       setIsProcessing(null);
     }
@@ -44,36 +46,28 @@ export const UserManagement: React.FC = () => {
   const handleReject = async (userId: string) => {
     try {
       setIsProcessing(userId);
+      setActionError(null);
       await rejectUser(userId);
     } catch (error) {
-      console.error('Failed to reject user:', error);
+      setActionError(error instanceof Error ? error.message : 'Failed to reject user');
     } finally {
       setIsProcessing(null);
     }
   };
 
-  const handleRoleChange = async (userId: string, newRole: 'user' | 'admin' | 'super_admin') => {
+  const handleRoleChange = async (userId: string, newRole: UserRole) => {
     try {
       setIsProcessing(userId);
+      setActionError(null);
       await updateUserRole(userId, newRole);
     } catch (error) {
-      console.error('Failed to update user role:', error);
+      setActionError(error instanceof Error ? error.message : 'Failed to update user role');
     } finally {
       setIsProcessing(null);
     }
   };
 
-  if (!user || user.role !== 'super_admin') {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600">Super admin access required</p>
-        </div>
-      </div>
-    );
-  }
+  if (!user) return null;
 
   const pendingCount = users.filter(u => u.status === 'pending').length;
   const approvedCount = users.filter(u => u.status === 'approved').length;
@@ -97,13 +91,13 @@ export const UserManagement: React.FC = () => {
               </div>
             </div>
             
-            <a
-              href="/"
+            <Link
+              to="/"
               className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Back to Dashboard</span>
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -180,7 +174,7 @@ export const UserManagement: React.FC = () => {
                 <Filter className="w-5 h-5 text-gray-400" />
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  onChange={(e) => setStatusFilter(e.target.value as 'all' | UserStatus)}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 >
                   <option value="all">All Status</option>
@@ -194,6 +188,11 @@ export const UserManagement: React.FC = () => {
 
           {/* Users Table */}
           <div className="p-6">
+            {(actionError || error) && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+                {actionError || error}
+              </div>
+            )}
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
@@ -247,7 +246,7 @@ export const UserManagement: React.FC = () => {
                         <td className="py-4 px-4">
                           <select
                             value={userItem.role}
-                            onChange={(e) => handleRoleChange(userItem.id, e.target.value as any)}
+                            onChange={(e) => handleRoleChange(userItem.id, e.target.value as UserRole)}
                             disabled={isProcessing === userItem.id || userItem.id === user.id}
                             className={`px-2 py-1 rounded-full text-xs font-medium border-0 ${
                               userItem.role === 'super_admin'
@@ -278,13 +277,13 @@ export const UserManagement: React.FC = () => {
                         <td className="py-4 px-4 text-gray-600">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4" />
-                            {new Date(userItem.created_at).toLocaleDateString()}
+                            {new Date(userItem.createdAt).toLocaleDateString()}
                           </div>
                         </td>
                         
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-2">
-                            {userItem.status === 'pending' && userItem.id !== user.id && (
+                            {userItem.status !== 'approved' && userItem.id !== user.id && (
                               <>
                                 <button
                                   onClick={() => handleApprove(userItem.id)}
@@ -294,6 +293,7 @@ export const UserManagement: React.FC = () => {
                                 >
                                   <UserCheck className="w-4 h-4" />
                                 </button>
+                                {userItem.status === 'pending' && (
                                 <button
                                   onClick={() => handleReject(userItem.id)}
                                   disabled={isProcessing === userItem.id}
@@ -302,16 +302,8 @@ export const UserManagement: React.FC = () => {
                                 >
                                   <UserX className="w-4 h-4" />
                                 </button>
+                                )}
                               </>
-                            )}
-                            
-                            {userItem.id !== user.id && (
-                              <button
-                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="User Settings"
-                              >
-                                <Settings className="w-4 h-4" />
-                              </button>
                             )}
                             
                             {isProcessing === userItem.id && (

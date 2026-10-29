@@ -1,200 +1,120 @@
-// api.ts
-import type { User } from './postgres'; // Assuming you create a types.ts or similar for shared types
+import type { FormRecord, RecordInput, User, UserRole } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-// --- Interfaces for API Responses & Payloads ---
-
-// Assuming your server returns an object with a 'user' property on successful auth
-interface AuthResponse {
+interface UserResponse {
   user: User;
-  message?: string; // Optional message from the server
 }
 
-interface GetCurrentUserResponse {
-  user: User | null; // User might be null if not authenticated
+interface MessageResponse {
+  message: string;
 }
 
-interface GeneralSuccessResponse {
-  message: string; // For operations like sign out, reset password, etc.
-}
-
-// --- Interfaces for Records (from your MongoDB/backend perspective) ---
-
-// Represents the raw structure of a record as returned by your API
-export interface RawApiRecord {
-  _id: string; // MongoDB's default ID
-  createdAt: string; // MongoDB's default timestamp (ISO string)
-  firstName: string;
-  lastName: string;
-  otherNames?: string; // Optional in API response
-  dateOfBirth: string; // Assuming date is string format, e.g., 'YYYY-MM-DD' or ISO
-  picture: string; // Assuming this is a URL or base64 string
-  // Add any other fields your API might return for a record
-}
-
-// Represents the payload for creating a new record
-export interface CreateRecordPayload {
-  firstName: string;
-  lastName: string;
-  otherNames?: string; // Optional for payload if it can be omitted
-  dateOfBirth: string;
-  picture: string;
-}
-
-// Represents the payload for updating an existing record (all fields optional)
-export interface UpdateRecordPayload {
-  firstName?: string;
-  lastName?: string;
-  otherNames?: string;
-  dateOfBirth?: string;
-  picture?: string;
-}
-
-// For getting a list of records
-export interface GetRecordsResponse {
-  records: RawApiRecord[]; // Assuming your API returns an object { records: [...] }
-  // You might also have pagination info here, e.g., totalCount: number;
-}
-
-// For users list (assuming your server returns an array of users)
-interface GetUsersResponse {
-  users: User[];
-}
-
-// --- End of Interfaces ---
-
- 
 class ApiClient {
-  
   private baseURL: string;
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`;
-    
-    const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      credentials: 'include', // Include cookies for session management
-      ...options,
-    };
-
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    let response: Response;
     try {
-      const response = await fetch(url, config);
-      
-      if (!response.ok) {
-        let errorData: any = {};
-        try {
-          // Attempt to parse JSON error message
-          errorData = await response.json();
-        } catch (e) {
-          // If response is not JSON, or empty
-          console.warn('API error response was not JSON or empty:', e);
-        }
-        // Use errorData.error, errorData.message, or a generic HTTP status message
-        throw new Error(errorData.error || errorData.message || `HTTP error! Status: ${response.status}`);
-      }
-
-      // Handle cases where response might be empty (e.g., 204 No Content for DELETE)
-      if (response.status === 204 || response.headers.get('content-length') === '0') {
-        return {} as T; // Return an empty object cast to T for void returns
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error; // Re-throw to be caught by the caller
+      response = await fetch(`${this.baseURL}${endpoint}`, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+        credentials: 'include', // auth is an httpOnly cookie
+      });
+    } catch {
+      throw new Error('Unable to reach the server. Check your connection and try again.');
     }
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || body.message || `Request failed (${response.status})`);
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return response.json();
   }
 
-  // Auth methods
-  async signUp(email: string, password: string): Promise<AuthResponse> {
-    return this.request<AuthResponse>('/auth/signup', {
+  // Auth
+  signUp(email: string, password: string) {
+    return this.request<UserResponse>('/auth/signup', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
   }
 
-  async signIn(email: string, password: string): Promise<AuthResponse> {
-    return this.request<AuthResponse>('/auth/signin', {
+  signIn(email: string, password: string) {
+    return this.request<UserResponse>('/auth/signin', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
   }
 
-  async signOut(): Promise<GeneralSuccessResponse> {
-    return this.request<GeneralSuccessResponse>('/auth/signout', {
-      method: 'POST',
-    });
+  signOut() {
+    return this.request<MessageResponse>('/auth/signout', { method: 'POST' });
   }
 
-  async getCurrentUser(): Promise<GetCurrentUserResponse> {
-    return this.request<GetCurrentUserResponse>('/auth/me');
+  getCurrentUser() {
+    return this.request<{ user: User | null }>('/auth/me');
   }
 
-  async resetPassword(email: string): Promise<GeneralSuccessResponse> {
-    return this.request<GeneralSuccessResponse>('/auth/reset-password', {
+  resetPassword(email: string) {
+    return this.request<MessageResponse>('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
   }
 
-  // Records methods
-  // Fully implement getRecords
-  async getRecords(): Promise<GetRecordsResponse> {
-    return this.request<GetRecordsResponse>('/records');
+  // Records
+  getRecords() {
+    return this.request<{ records: FormRecord[] }>('/records');
   }
 
-  // Fully implement createRecord with correct payload type
-  async createRecord(recordData: CreateRecordPayload): Promise<RawApiRecord> {
-    return this.request<RawApiRecord>('/records', {
+  createRecord(record: RecordInput) {
+    return this.request<FormRecord>('/records', {
       method: 'POST',
-      body: JSON.stringify(recordData),
+      body: JSON.stringify(record),
     });
   }
 
-  // Fully implement updateRecord with correct payload type
-  async updateRecord(id: string, recordData: UpdateRecordPayload): Promise<RawApiRecord> {
-    return this.request<RawApiRecord>(`/records/${id}`, {
-      method: 'PUT', // Or 'PATCH' if your API uses PATCH for partial updates
-      body: JSON.stringify(recordData),
+  updateRecord(id: string, updates: Partial<RecordInput>) {
+    return this.request<FormRecord>(`/records/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
     });
   }
 
-  // Fully implement deleteRecord
-  async deleteRecord(id: string): Promise<GeneralSuccessResponse> { // Or Promise<void> if it returns nothing
-    return this.request<GeneralSuccessResponse>(`/records/${id}`, {
-      method: 'DELETE',
-    });
+  archiveRecord(id: string) {
+    return this.request<FormRecord>(`/records/${id}/archive`, { method: 'PATCH' });
   }
 
-  // Users methods
-  async getUsers(): Promise<GetUsersResponse> {
-    return this.request<GetUsersResponse>('/users');
+  restoreRecord(id: string) {
+    return this.request<FormRecord>(`/records/${id}/restore`, { method: 'PATCH' });
   }
 
-  async approveUser(id: string): Promise<User> { // Assuming it returns the updated user
-    return this.request<User>(`/users/${id}/approve`, {
-      method: 'PATCH',
-    });
+  deleteRecord(id: string) {
+    return this.request<void>(`/records/${id}`, { method: 'DELETE' });
   }
 
-  async rejectUser(id: string): Promise<User> { // Assuming it returns the updated user
-    return this.request<User>(`/users/${id}/reject`, {
-      method: 'PATCH',
-    });
+  // Users (super admin)
+  getUsers() {
+    return this.request<{ users: User[] }>('/users');
   }
 
-  async updateUserRole(id: string, role: 'user' | 'admin' | 'super_admin'): Promise<User> { // Make role type-safe
+  approveUser(id: string) {
+    return this.request<User>(`/users/${id}/approve`, { method: 'PATCH' });
+  }
+
+  rejectUser(id: string) {
+    return this.request<User>(`/users/${id}/reject`, { method: 'PATCH' });
+  }
+
+  updateUserRole(id: string, role: UserRole) {
     return this.request<User>(`/users/${id}/role`, {
       method: 'PATCH',
       body: JSON.stringify({ role }),
