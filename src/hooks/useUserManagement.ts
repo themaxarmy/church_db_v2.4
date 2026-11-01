@@ -24,6 +24,18 @@ export const useUserManagement = (enabled = true) => {
   const replaceUser = (updated: User) =>
     setUsers(prev => prev.map(user => (user.id === updated.id ? updated : user)));
 
+  // Both return the temporary password to show the admin once.
+  const createUser = async (email: string, role: UserRole) => {
+    const { user, temporaryPassword } = await apiClient.createUser(email, role);
+    setUsers(prev => [user, ...prev]);
+    return temporaryPassword;
+  };
+  const resetUserPassword = async (userId: string) => {
+    const { user, temporaryPassword } = await apiClient.resetUserPassword(userId);
+    replaceUser(user);
+    return temporaryPassword;
+  };
+
   const approveUser = async (userId: string) => replaceUser(await apiClient.approveUser(userId));
   const rejectUser = async (userId: string) => replaceUser(await apiClient.rejectUser(userId));
   const updateUserRole = async (userId: string, role: UserRole) =>
@@ -33,5 +45,15 @@ export const useUserManagement = (enabled = true) => {
     if (enabled) fetchUsers();
   }, [enabled, fetchUsers]);
 
-  return { users, loading, error, approveUser, rejectUser, updateUserRole, refetch: fetchUsers };
+  return {
+    users,
+    loading,
+    error,
+    createUser,
+    resetUserPassword,
+    approveUser,
+    rejectUser,
+    updateUserRole,
+    refetch: fetchUsers,
+  };
 };

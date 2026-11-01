@@ -63,6 +63,13 @@ class ApiClient {
     return this.request<{ user: User | null }>('/auth/me');
   }
 
+  changePassword(currentPassword: string, newPassword: string) {
+    return this.request<UserResponse>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
   resetPassword(email: string) {
     return this.request<MessageResponse>('/auth/reset-password', {
       method: 'POST',
@@ -108,6 +115,18 @@ class ApiClient {
   // Users (super admin)
   getUsers() {
     return this.request<{ users: User[] }>('/users');
+  }
+
+  // Returns the account and its temporary password, which the server never shows again.
+  createUser(email: string, role: UserRole) {
+    return this.request<{ user: User; temporaryPassword: string }>('/users', {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    });
+  }
+
+  resetUserPassword(id: string) {
+    return this.request<{ user: User; temporaryPassword: string }>(`/users/${id}/reset-password`, { method: 'POST' });
   }
 
   approveUser(id: string) {

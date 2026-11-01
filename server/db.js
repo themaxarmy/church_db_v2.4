@@ -29,6 +29,8 @@ const toUser = (row) =>
     role: row.role,
     approvedBy: row.approved_by,
     approvedAt: iso(row.approved_at),
+    // SQLite stores booleans as 0/1.
+    mustChangePassword: Boolean(row.must_change_password),
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
   };
@@ -63,7 +65,7 @@ const toRecord = (row) =>
 // Return DATE columns as 'YYYY-MM-DD' strings instead of local-midnight Date objects.
 pg.types.setTypeParser(1082, (value) => value);
 
-const USER_COLUMNS = 'id, email, status, role, approved_by, approved_at, created_at, updated_at';
+const USER_COLUMNS = 'id, email, status, role, approved_by, approved_at, must_change_password, created_at, updated_at';
 
 export const users = {
   async create(email, passwordHash) {
@@ -74,10 +76,46 @@ export const users = {
     return toUser(rows[0]);
   },
 
-  // Only place password_hash leaves the database; callers must not send it to clients.
+  // An account a super admin creates: approved straight away, with a temporary password to change on first sign-in.
+  async createByAdmin(email, passwordHash, role, actorId) {
+    const { rows } = await pool.query(
+      `INSERT INTO users (email, password_hash, status, role, approved_by, approved_at, must_change_password)
+       VALUES ($1, $2, 'approved', $3, $4, $5, $6)
+       RETURNING ${USER_COLUMNS}`,
+      [email, passwordHash, role, actorId, new Date(), true],
+    );
+    return toUser(rows[0]);
+  },
+
+  // The only places password_hash leaves the database; callers must not send it to clients.
   async findCredentialsByEmail(email) {
     const { rows } = await pool.query('SELECT id, password_hash FROM users WHERE email = $1', [email]);
     return rows[0] || null;
+  },
+
+  async findCredentialsById(id) {
+    const { rows } = await pool.query('SELECT id, password_hash FROM users WHERE id = $1', [id]);
+    return rows[0] || null;
+  },
+
+  // The user behind a session, plus when their password last changed (older sessions are no longer valid).
+  async findSessionUser(id) {
+    const { rows } = await pool.query(`SELECT ${USER_COLUMNS}, password_changed_at FROM users WHERE id = $1`, [id]);
+    if (!rows[0]) return null;
+    const changedAt = rows[0].password_changed_at;
+    return { user: toUser(rows[0]), passwordChangedAt: changedAt ? new Date(changedAt).getTime() : null };
+  },
+
+  // Sets a new password. mustChange marks it temporary (an admin reset); the user then has to replace it.
+  async setPassword(id, passwordHash, mustChange) {
+    const { rows } = await pool.query(
+      `UPDATE users
+          SET password_hash = $1, must_change_password = $2, password_changed_at = $3, updated_at = now()
+        WHERE id = $4
+        RETURNING ${USER_COLUMNS}`,
+      [passwordHash, mustChange, new Date(), id],
+    );
+    return toUser(rows[0]) || null;
   },
 
   async findById(id) {

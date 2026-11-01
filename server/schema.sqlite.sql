@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
   role          text NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'super_admin')),
   approved_by   text REFERENCES users(id) ON DELETE SET NULL,
   approved_at   text,
+  must_change_password integer NOT NULL DEFAULT 0,
+  password_changed_at  text,
   created_at    text NOT NULL DEFAULT (now()),
   updated_at    text NOT NULL DEFAULT (now())
 );

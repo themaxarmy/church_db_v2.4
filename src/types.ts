@@ -10,6 +10,8 @@ export interface User {
   role: UserRole;
   approvedBy: string | null;
   approvedAt: string | null;
+  // Set for accounts with a temporary password (created or reset by a super admin) until they choose their own.
+  mustChangePassword: boolean;
   createdAt: string;
   updatedAt: string;
 }

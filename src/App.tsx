@@ -10,6 +10,7 @@ import { AuthPage } from './pages/AuthPage';
 import { UserManagement } from './pages/UserManagement';
 import { EditRecord } from './pages/EditRecord';
 import { NewRecord } from './pages/NewRecord';
+import { Account } from './pages/Account';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
           >
             <Route index element={<Records />} />
             <Route path="records/new" element={<NewRecord />} />
+            <Route path="account" element={<Account />} />
             <Route
               path="records/:id/edit"
               element={

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Check, Search, UserRoundX, Users as UsersIcon } from 'lucide-react';
+import { Check, KeyRound, Search, UserPlus, UserRoundX, Users as UsersIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useUsers } from '../contexts/UsersContext';
 import { PageHeader, ROLE_LABELS } from '../components/AppShell';
-import { Alert, Avatar, ConfirmDialog, EmptyState, LoadingBlock, Spinner } from '../components/ui';
+import { Alert, Avatar, ConfirmDialog, EmptyState, Field, LoadingBlock, Modal, Spinner, TemporaryPassword } from '../components/ui';
 import { formatDate } from '../lib/records';
 import type { User, UserRole, UserStatus } from '../types';
 
@@ -40,7 +40,7 @@ const RoleSelect: React.FC<{ value: UserRole; onChange: (role: UserRole) => void
 
 export const UserManagement: React.FC = () => {
   const { user: me } = useAuth();
-  const { users, loading, error, approveUser, rejectUser, updateUserRole } = useUsers();
+  const { users, loading, error, createUser, resetUserPassword, approveUser, rejectUser, updateUserRole } = useUsers();
   const [tab, setTab] = useState<UserStatus>('pending');
   const [search, setSearch] = useState('');
   // The role chosen in "Approve as" for each pending or rejected account.
@@ -48,6 +48,49 @@ export const UserManagement: React.FC = () => {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [toRevoke, setToRevoke] = useState<User | null>(null);
+  const [toReset, setToReset] = useState<User | null>(null);
+  // Add user dialog
+  const [addOpen, setAddOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newRole, setNewRole] = useState<UserRole>('user');
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  // A temporary password just issued, shown once.
+  const [issued, setIssued] = useState<{ email: string; password: string } | null>(null);
+
+  const openAdd = () => {
+    setNewEmail('');
+    setNewRole('user');
+    setAddError(null);
+    setAddOpen(true);
+  };
+
+  const submitAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdding(true);
+    setAddError(null);
+    try {
+      const password = await createUser(newEmail.trim(), newRole);
+      setAddOpen(false);
+      setTab('approved');
+      setIssued({ email: newEmail.trim().toLowerCase(), password });
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Failed to add user');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const reset = async () => {
+    if (!toReset) return;
+    const target = toReset;
+    setToReset(null);
+    await run(
+      target.id,
+      async () => setIssued({ email: target.email, password: await resetUserPassword(target.id) }),
+      'Failed to reset password',
+    );
+  };
 
   const run = async (id: string, action: () => Promise<void>, failure: string) => {
     setBusyId(id);
@@ -86,7 +129,16 @@ export const UserManagement: React.FC = () => {
 
   return (
     <>
-      <PageHeader title="Users" subtitle="Approve sign-ups and choose what each person can do." />
+      <PageHeader
+        title="Users"
+        subtitle="Add staff, approve sign-ups and choose what each person can do."
+        actions={
+          <button type="button" className="btn btn-primary" onClick={openAdd}>
+            <UserPlus className="h-4 w-4" />
+            Add user
+          </button>
+        }
+      />
 
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line">
         <div role="tablist" aria-label="Accounts by status" className="flex gap-1">
@@ -143,10 +195,11 @@ export const UserManagement: React.FC = () => {
                       {u.email}
                       {isMe && <span className="ml-2 chip">You</span>}
                     </p>
-                    <p className="text-[13px] text-ink-muted">
+                    <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-ink-muted">
                       {u.status === 'approved'
                         ? `${ROLE_LABELS[u.role]} · approved ${formatDate(u.approvedAt ?? u.updatedAt)}`
                         : `Signed up ${formatDate(u.createdAt)}`}
+                      {u.mustChangePassword && <span className="chip-accent">Temporary password</span>}
                     </p>
                   </div>
 
@@ -188,6 +241,10 @@ export const UserManagement: React.FC = () => {
                         onChange={role => run(u.id, () => updateUserRole(u.id, role), 'Failed to change role')}
                         disabled={busy}
                       />
+                      <button type="button" className="btn btn-secondary" onClick={() => setToReset(u)} disabled={busy}>
+                        <KeyRound className="h-4 w-4" />
+                        Reset password
+                      </button>
                       <button
                         type="button"
                         className="btn btn-ghost text-danger-text hover:bg-danger-soft hover:text-danger-text"
@@ -210,6 +267,79 @@ export const UserManagement: React.FC = () => {
         <strong className="text-ink">User</strong> views records · <strong className="text-ink">Admin</strong> also edits,
         archives and deletes · <strong className="text-ink">Super admin</strong> also manages users
       </p>
+
+      <Modal
+        open={addOpen}
+        title="Add user"
+        onClose={() => !adding && setAddOpen(false)}
+      >
+        <form onSubmit={submitAdd} className="flex flex-col gap-4">
+          <p className="text-ink-muted">
+            They'll get a temporary password to sign in with, and choose their own the first time they do.
+          </p>
+          {addError && <Alert>{addError}</Alert>}
+          <Field label="Email" required>
+            {props => (
+              <input
+                {...props}
+                type="email"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                autoComplete="off"
+                disabled={adding}
+                className="field-input"
+              />
+            )}
+          </Field>
+          <Field label="Role">
+            {props => (
+              <select
+                {...props}
+                value={newRole}
+                onChange={e => setNewRole(e.target.value as UserRole)}
+                disabled={adding}
+                className="field-input"
+              >
+                {ROLE_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            )}
+          </Field>
+          <div className="mt-2 flex justify-end gap-3">
+            <button type="button" className="btn btn-secondary" onClick={() => setAddOpen(false)} disabled={adding}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={adding || !newEmail.trim()}>
+              {adding && <Spinner className="h-4 w-4" />}
+              Add user
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={issued !== null}
+        title="Temporary password"
+        onClose={() => setIssued(null)}
+        footer={
+          <button type="button" className="btn btn-primary" onClick={() => setIssued(null)}>
+            Done
+          </button>
+        }
+      >
+        {issued && <TemporaryPassword email={issued.email} password={issued.password} />}
+      </Modal>
+
+      <ConfirmDialog
+        open={toReset !== null}
+        title="Reset password?"
+        confirmLabel="Reset password"
+        onConfirm={reset}
+        onCancel={() => setToReset(null)}
+      >
+        {toReset?.email} will be signed out and given a temporary password. Their current password stops working.
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={toRevoke !== null}

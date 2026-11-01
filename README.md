@@ -179,7 +179,14 @@ Archived records stay in the database but are hidden from the Records page unles
 | `/` | Approved users | Records: search, filter by ministry, open a person's details and export CSV. Admins can also edit, archive, restore and delete. |
 | `/records/new` | Approved users | Add a record as staff (recorded as added by you) |
 | `/records/:id/edit` | Admins and super admins | Edit a record |
-| `/users` | Super admins | Approve sign-ups (choosing their role), reject them, change roles and remove access |
+| `/users` | Super admins | Add users, approve sign-ups (choosing their role), reject them, change roles, reset passwords and remove access |
+| `/account` | Any signed-in user | Change your password |
+
+**Staff accounts.** A super admin can **Add user** on the Users page: the account is approved straight away with
+the chosen role, and a temporary password is shown once to pass on. The person must choose their own password the
+first time they sign in, before they can see anything. Anyone can change their password later from the account menu
+(top right) → **Change password**; changing or resetting a password signs out that account's other sessions.
+People can still sign up themselves; those accounts wait for approval as before.
 
 The look is set by colour tokens in [src/index.css](src/index.css) (light and dark) and
 [tailwind.config.js](tailwind.config.js); shared pieces like buttons, fields and dialogs are in
@@ -222,8 +229,8 @@ response.
   The page shows one message for both causes on purpose. The API terminal says which it was:
   - *No account for …*: sign up first. A new or deleted `local.db` starts with no users, and sign-ups made
     while the server was misconfigured were never saved.
-  - *Wrong password*: there's no password reset yet. For local testing, delete `server/local.db` and sign
-    up again.
+  - *Wrong password*: a super admin can reset it on the Users page, which gives a temporary password. For your
+    own super admin account locally, delete `server/local.db` and sign up again.
 
   The "which part was wrong" detail is only logged when `NODE_ENV` is not `production`.
 - **The server exits with "DATABASE_URL must start with postgresql:// or sqlite:".**
@@ -237,7 +244,8 @@ response.
   The API isn't running. Start it with `cd server && npm run dev`.
 - **The server prints an "ExperimentalWarning: SQLite" message.**
   It's harmless. To hide it, set `NODE_NO_WARNINGS=1`.
-- **Password reset doesn't work.**
-  It isn't implemented yet. An admin can help instead.
+- **Someone forgot their password.**
+  A super admin opens **Users → Approved → Reset password**. That signs the person out everywhere and shows a
+  temporary password to pass on. They choose a new one when they sign in.
 
 See [server/README.md](server/README.md) for API details.

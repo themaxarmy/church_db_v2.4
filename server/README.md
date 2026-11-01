@@ -33,7 +33,18 @@ Sign up in the app, then promote your account:
 npm run promote -- you@example.com
 ```
 
-New sign-ups start as `pending`; a super admin approves them on the Users page.
+New sign-ups start as `pending`; a super admin approves them on the Users page. A super admin can also create
+accounts there: those are approved immediately with a temporary password, and must change it before using the API.
+
+## Passwords
+
+- `POST /api/auth/change-password` `{ currentPassword, newPassword }`: any signed-in account. Issues a fresh session.
+- `POST /api/users` `{ email, role }`: super admins. Returns `{ user, temporaryPassword }`; the password is not stored
+  or shown again.
+- `POST /api/users/:id/reset-password`: super admins, not for their own account. Returns a new temporary password.
+
+While `must_change_password` is set, every route behind approval returns 403 until the password is changed.
+Sessions issued before `password_changed_at` are rejected, so a change or reset signs out other devices.
 
 ## Access rules
 
@@ -44,6 +55,7 @@ New sign-ups start as `pending`; a super admin approves them on the Users page.
 | `PUT`/`DELETE /api/records/:id` | Approved admins and super admins |
 | `PATCH /api/records/:id/archive`, `/restore` | Approved admins and super admins |
 | `/api/users/*` | Approved super admins |
+| `POST /api/auth/change-password` | Any signed-in account |
 
 Sessions are an httpOnly `token` cookie. When an approved staff member submits the form, the record's `submitted_by` is set to them. Edits and
 archiving set `updated_by`. The user is reloaded from the database on every request, so approvals, rejections and role changes apply immediately.

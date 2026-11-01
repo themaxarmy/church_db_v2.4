@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -76,15 +77,20 @@ const setSession = (res, user) => {
 };
 
 // Reloads the user from the database on every request so status/role changes apply immediately.
+// A session issued before the password last changed is rejected, so a reset signs the person out everywhere.
 const loadUser = async (req) => {
   const token = req.cookies?.[COOKIE];
   if (!token) return null;
+  let claims;
   try {
-    const { sub } = jwt.verify(token, config.jwtSecret);
-    return await users.findById(sub);
+    claims = jwt.verify(token, config.jwtSecret);
   } catch {
     return null;
   }
+  const found = await users.findSessionUser(claims.sub);
+  if (!found) return null;
+  if (found.passwordChangedAt && claims.iat < Math.floor(found.passwordChangedAt / 1000)) return null;
+  return found.user;
 };
 
 const requireAuth = route(async (req, res, next) => {
@@ -95,6 +101,8 @@ const requireAuth = route(async (req, res, next) => {
 
 const requireApproved = (req, res, next) => {
   if (req.user.status !== 'approved') return next(new HttpError(403, 'Your account is awaiting approval'));
+  // Accounts with a temporary password can only change it (POST /auth/change-password) until they do.
+  if (req.user.mustChangePassword) return next(new HttpError(403, 'Change your temporary password to continue'));
   next();
 };
 
@@ -121,6 +129,24 @@ const requireUuid = (id) => {
   if (!UUID_RE.test(id)) throw new HttpError(404, 'Not found');
   return id;
 };
+
+const MIN_PASSWORD = 8;
+const MAX_PASSWORD = 200;
+
+const checkNewPassword = (password) => {
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
+    throw new HttpError(400, `Password must be at least ${MIN_PASSWORD} characters`);
+  }
+  if (password.length > MAX_PASSWORD) throw new HttpError(400, 'Password is too long');
+  return password;
+};
+
+// A temporary password an admin passes on, e.g. "K7QM-3XRP-9TWD". No 0/O or 1/I/L, so it's easy to read out.
+const TEMP_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const temporaryPassword = () =>
+  Array.from({ length: 3 }, () =>
+    Array.from({ length: 4 }, () => TEMP_ALPHABET[crypto.randomInt(TEMP_ALPHABET.length)]).join(''),
+  ).join('-');
 
 const readCredentials = (body) => {
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
@@ -236,8 +262,7 @@ api.get('/health', (req, res) => res.json({ ok: true }));
 api.post('/auth/signup', authLimiter, route(async (req, res) => {
   const { email, password } = readCredentials(req.body);
   if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Enter a valid email address');
-  if (password.length < 8) throw new HttpError(400, 'Password must be at least 8 characters');
-  if (password.length > 200) throw new HttpError(400, 'Password is too long');
+  checkNewPassword(password);
 
   let user;
   try {
@@ -275,8 +300,24 @@ api.get('/auth/me', route(async (req, res) => {
 }));
 
 api.post('/auth/reset-password', authLimiter, (req, res) => {
-  res.status(501).json({ error: 'Password reset is not available yet. Contact an administrator.' });
+  res.status(501).json({ error: 'Ask a super admin to reset your password.' });
 });
+
+// Any signed-in account, including one with a temporary password or awaiting approval.
+api.post('/auth/change-password', authLimiter, requireAuth, route(async (req, res) => {
+  const current = typeof req.body?.currentPassword === 'string' ? req.body.currentPassword : '';
+  const next = checkNewPassword(req.body?.newPassword);
+  const credentials = await users.findCredentialsById(req.user.id);
+  if (!credentials || !(await bcrypt.compare(current, credentials.password_hash))) {
+    throw new HttpError(400, 'Your current password is incorrect');
+  }
+  if (next === current) throw new HttpError(400, 'Choose a password different from your current one');
+
+  const user = await users.setPassword(req.user.id, await bcrypt.hash(next, 12), false);
+  // Other sessions are now signed out; this one gets a fresh token.
+  setSession(res, user);
+  res.json({ user });
+}));
 
 api.get('/records', requireAuth, requireApproved, route(async (req, res) => {
   res.json({ records: await records.findAll() });
@@ -321,6 +362,36 @@ api.delete('/records/:id', requireAuth, requireAdmin, route(async (req, res) => 
 
 api.get('/users', requireAuth, requireSuperAdmin, route(async (req, res) => {
   res.json({ users: await users.findAll() });
+}));
+
+// Creates an approved account with a temporary password, returned once for the admin to pass on.
+api.post('/users', requireAuth, requireSuperAdmin, route(async (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Enter a valid email address');
+  const role = req.body?.role ?? 'user';
+  if (!ROLES.includes(role)) throw new HttpError(400, `Role must be one of: ${ROLES.join(', ')}`);
+
+  const password = temporaryPassword();
+  let user;
+  try {
+    user = await users.createByAdmin(email, await bcrypt.hash(password, 12), role, req.user.id);
+  } catch (err) {
+    if (err.code === '23505') throw new HttpError(409, 'An account with this email already exists');
+    throw err;
+  }
+  res.set('Cache-Control', 'no-store');
+  res.status(201).json({ user, temporaryPassword: password });
+}));
+
+// Gives someone a new temporary password (e.g. they forgot theirs) and signs them out everywhere.
+api.post('/users/:id/reset-password', requireAuth, requireSuperAdmin, route(async (req, res) => {
+  const id = requireUuid(req.params.id);
+  if (id === req.user.id) throw new HttpError(400, 'Use Change password for your own account');
+  const password = temporaryPassword();
+  const user = await users.setPassword(id, await bcrypt.hash(password, 12), true);
+  if (!user) throw new HttpError(404, 'User not found');
+  res.set('Cache-Control', 'no-store');
+  res.json({ user, temporaryPassword: password });
 }));
 
 const updateStatus = (status) => route(async (req, res) => {

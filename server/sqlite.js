@@ -10,6 +10,7 @@ const SCHEMA = path.join(path.dirname(fileURLToPath(import.meta.url)), 'schema.s
 
 // Columns added after the first release (see migrations/), for local.db files created before them.
 const ADDED_COLUMNS = {
+  users: ['must_change_password integer NOT NULL DEFAULT 0', 'password_changed_at text'],
   form_records: [
     "gender text CHECK (gender IN ('male', 'female'))",
     'phone text',
@@ -46,7 +47,11 @@ export const createSqlitePool = (databaseUrl) => {
   db.exec(fs.readFileSync(SCHEMA, 'utf8'));
   addMissingColumns(db);
 
-  const toParam = (value) => (value instanceof Date ? value.toISOString() : value ?? null);
+  const toParam = (value) => {
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'boolean') return value ? 1 : 0;
+    return value ?? null;
+  };
 
   return {
     // Same shape as pg's pool.query: rewrites $1..$n to positional `?` (supports reuse).

@@ -52,7 +52,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
         {mode === 'reset' ? (
           <>
             <p className="mt-2 text-ink-muted">
-              Password resets aren't available yet. Ask a super admin to help you get back in.
+              Ask a super admin to reset it. They'll give you a temporary password, and you'll choose a new one when
+              you sign in.
             </p>
             <Link to="/auth/login" className="btn btn-secondary mt-6 w-full">Back to sign in</Link>
           </>

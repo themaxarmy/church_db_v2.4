@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { ChevronDown, LogOut, Menu as MenuIcon, X } from 'lucide-react';
+import { ChevronDown, KeyRound, LogOut, Menu as MenuIcon, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useUsers } from '../contexts/UsersContext';
 import { Logo } from './Logo';
@@ -58,11 +58,20 @@ const AccountMenu: React.FC = () => {
             <p className="truncate font-semibold">{user.email}</p>
             <p className="text-xs text-ink-muted">{ROLE_LABELS[user.role]}</p>
           </div>
+          <Link
+            to="/account"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="mt-1 flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left font-medium hover:bg-chip"
+          >
+            <KeyRound className="h-4 w-4" />
+            Change password
+          </Link>
           <button
             type="button"
             role="menuitem"
             onClick={() => signOut()}
-            className="mt-1 flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left font-medium hover:bg-chip"
+            className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left font-medium hover:bg-chip"
           >
             <LogOut className="h-4 w-4" />
             Sign out
@@ -137,6 +146,10 @@ export const AppShell: React.FC = () => {
                 </div>
               </div>
               <ThemeToggle labelled />
+              <Link to="/account" className="btn btn-secondary">
+                <KeyRound className="h-4 w-4" />
+                Change password
+              </Link>
               <button type="button" className="btn btn-secondary" onClick={() => signOut()}>
                 <LogOut className="h-4 w-4" />
                 Sign out

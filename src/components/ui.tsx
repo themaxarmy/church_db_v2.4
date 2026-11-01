@@ -262,3 +262,78 @@ export const Menu: React.FC<{ label: string; trigger: React.ReactNode; items: Me
     </>
   );
 };
+
+interface ModalProps {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}
+
+// A general dialog with a title, body and button row. Escape or clicking outside closes it.
+export const Modal: React.FC<ModalProps> = ({ open, title, onClose, children, footer }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!open) return;
+    panelRef.current?.querySelector<HTMLElement>('input, select, button')?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      onCloseRef.current();
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [open]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={onClose}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="card w-full max-w-md p-6 shadow-xl"
+        onMouseDown={e => e.stopPropagation()}
+      >
+        <h2 id={titleId} className="text-lg font-semibold">{title}</h2>
+        <div className="mt-3">{children}</div>
+        {footer && <div className="mt-6 flex flex-wrap justify-end gap-3">{footer}</div>}
+      </div>
+    </div>
+  );
+};
+
+// Shows a temporary password once, with a copy button, for an admin to pass on.
+export const TemporaryPassword: React.FC<{ email: string; password: string }> = ({ email, password }) => {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked: the password is still on screen to copy by hand.
+    }
+  };
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-ink-muted">
+        Give this temporary password to <strong className="text-ink">{email}</strong>. They'll be asked to choose
+        their own when they sign in at <strong className="text-ink">{window.location.host}</strong>.
+      </p>
+      <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-muted p-2 pl-4">
+        <code className="flex-1 select-all font-mono text-lg font-semibold tracking-wider">{password}</code>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={copy}>
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <p className="text-xs text-ink-muted">It won't be shown again. If it's lost, reset their password to get a new one.</p>
+    </div>
+  );
+};
