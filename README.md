@@ -104,7 +104,7 @@ settings are saved in `server/.env.backup`).
 
 Netlify hosts both parts on one domain. It serves the built frontend from `dist/`, and runs the API as a
 single Netlify Function (`server/functions/api.mjs`, which wraps the same Express app as `server/index.js`).
-`netlify.toml` rewrites `/api/*` to that function, so the login cookie stays first-party and no CORS setup
+The function claims `/api/*` on the site's own domain, so the login cookie stays first-party and no CORS setup
 is needed.
 
 **1. Update the database** if it was created before `migrations/002_rate_limits.sql`:

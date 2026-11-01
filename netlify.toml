@@ -11,12 +11,8 @@
   directory = "server/functions"
   node_bundler = "esbuild"
 
-# The API lives on the same domain as the site, so the login cookie stays first-party.
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
-  force = true
+# The API function claims /api/* itself (config.path in server/functions/api.mjs), on the same domain as
+# the site so the login cookie stays first-party. Function paths take precedence over the rule below.
 
 # Single-page app: let React Router handle every other path.
 [[redirects]]
