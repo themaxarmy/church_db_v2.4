@@ -1,6 +1,7 @@
 # Netlify serves the built frontend from dist/ and runs the API (server/) as one function.
 [build]
-  command = "npm ci --prefix server && npm run build"
+  # --include=dev: the build needs TypeScript and Vite even if NODE_ENV=production is set.
+  command = "npm ci --include=dev && npm ci --prefix server && npm run build"
   publish = "dist"
 
 [build.environment]

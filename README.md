@@ -124,10 +124,10 @@ them at runtime.
 | --- | --- |
 | `DATABASE_URL` | Neon's **pooled** connection string (the `-pooler` host), with `sslmode=verify-full` |
 | `JWT_SECRET` | A long random value, different from your local one |
-| `NODE_ENV` | `production` (makes the login cookie HTTPS-only) |
 | `FRONTEND_URL` | Your site's URL, e.g. `https://holy-hill.netlify.app` |
 
-Leave `VITE_API_URL` unset. The frontend calls `/api` on its own domain.
+Leave `VITE_API_URL` unset. The frontend calls `/api` on its own domain. Don't set `NODE_ENV`: the function
+sets production mode itself, and on Netlify's free plan the variable would also apply to the build.
 
 **4. Deploy**, then sign in at your site. If you signed up somewhere other than this database, sign up
 again and run `npm run promote -- you@example.com` with `server/.env` pointing at the same database.

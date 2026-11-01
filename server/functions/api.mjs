@@ -1,4 +1,5 @@
 // Netlify Function that serves the whole API. netlify.toml rewrites /api/* here.
+import './production.mjs'; // must stay first: runs before config.js reads NODE_ENV
 import serverless from 'serverless-http';
 import app from '../app.js';
 
