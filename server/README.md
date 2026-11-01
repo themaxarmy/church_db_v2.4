@@ -2,6 +2,9 @@
 
 Express + PostgreSQL API for the frontend in `../src`. Serves `/api` on port 3001 by default.
 
+The app itself is in `app.js`. `index.js` runs it as a local server, and `functions/api.mjs` runs it as a
+Netlify Function (see "Deploying to Netlify" in the main README).
+
 ## Setup
 
 ```sh
@@ -36,7 +39,7 @@ New sign-ups start as `pending`; a super admin approves them on the Users page.
 
 | Route | Who |
 | --- | --- |
-| `POST /api/records` | Anyone (public form, rate-limited) |
+| `POST /api/records` | Anyone (public form, rate-limited: 10 per hour per IP) |
 | `GET /api/records`, `GET /api/records/:id` | Approved users |
 | `PUT`/`DELETE /api/records/:id` | Approved admins and super admins |
 | `PATCH /api/records/:id/archive`, `/restore` | Approved admins and super admins |

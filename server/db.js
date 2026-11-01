@@ -2,9 +2,11 @@ import pg from 'pg';
 import { config } from './config.js';
 
 const useSqlite = config.databaseUrl.startsWith('sqlite:');
+// A variable path keeps the Netlify bundler from pulling in node:sqlite, which is only for local testing.
+const sqliteModule = './sqlite.js';
 
 export const pool = useSqlite
-  ? (await import('./sqlite.js')).createSqlitePool(config.databaseUrl)
+  ? (await import(sqliteModule)).createSqlitePool(config.databaseUrl)
   : new pg.Pool({
       // SSL comes from the URL (Neon's includes sslmode=require). Use Neon's pooled URL here.
       connectionString: config.databaseUrl,
@@ -193,5 +195,30 @@ export const records = {
   async remove(id) {
     const { rowCount } = await pool.query('DELETE FROM form_records WHERE id = $1', [id]);
     return rowCount > 0;
+  },
+};
+
+const RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+export const rateLimits = {
+  // Counts one hit for key in a fixed window of windowMs. Returns the hits so far and when the window resets.
+  async hit(key, windowMs) {
+    const now = new Date();
+    const windowCutoff = new Date(now.getTime() - windowMs);
+    const { rows } = await pool.query(
+      `INSERT INTO rate_limits (key, window_start, hits) VALUES ($1, $2, 1)
+       ON CONFLICT (key) DO UPDATE SET
+         hits = CASE WHEN rate_limits.window_start <= $3 THEN 1 ELSE rate_limits.hits + 1 END,
+         window_start = CASE WHEN rate_limits.window_start <= $3 THEN $2 ELSE rate_limits.window_start END
+       RETURNING hits, window_start`,
+      [key, now, windowCutoff],
+    );
+    // Now and then, drop counters nobody has used for a day so the table stays small.
+    if (Math.random() < 0.01) {
+      await pool.query('DELETE FROM rate_limits WHERE window_start < $1', [
+        new Date(now.getTime() - RATE_LIMIT_RETENTION_MS),
+      ]);
+    }
+    return { hits: Number(rows[0].hits), resetAt: new Date(rows[0].window_start).getTime() + windowMs };
   },
 };

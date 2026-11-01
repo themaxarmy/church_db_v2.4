@@ -38,3 +38,9 @@ CREATE TABLE IF NOT EXISTS form_records (
 );
 
 CREATE INDEX IF NOT EXISTS form_records_created_at_idx ON form_records (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key          text PRIMARY KEY,
+  window_start text NOT NULL,
+  hits         integer NOT NULL
+);

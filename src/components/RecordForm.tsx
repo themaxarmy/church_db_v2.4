@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Upload, Save, AlertCircle } from 'lucide-react';
 import type { Gender, RecordInput } from '../types';
 import { EMPTY_FORM } from '../lib/records';
+import { resizeImage } from '../lib/image';
 
 type TextFieldName = Exclude<keyof RecordInput, 'picture' | 'gender'>;
 
@@ -80,23 +81,23 @@ export const RecordForm: React.FC<RecordFormProps> = ({
     onChange?.();
   };
 
-  const handleImageUpload = (file: File) => {
-    if (file && ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setErrors(prev => ({ ...prev, picture: 'Image size must be less than 5MB' }));
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setFormData(prev => ({ ...prev, picture: e.target?.result as string }));
-        if (errors.picture) {
-          setErrors(prev => ({ ...prev, picture: '' }));
-        }
-      };
-      reader.readAsDataURL(file);
-    } else {
+  const handleImageUpload = async (file: File) => {
+    if (!file || !['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
       setErrors(prev => ({ ...prev, picture: 'Please select a valid image file' }));
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) { // Shrunk before upload, but very large files can stall phones
+      setErrors(prev => ({ ...prev, picture: 'Image size must be less than 25MB' }));
+      return;
+    }
+
+    try {
+      const picture = await resizeImage(file);
+      setFormData(prev => ({ ...prev, picture }));
+      setErrors(prev => ({ ...prev, picture: '' }));
+      onChange?.();
+    } catch {
+      setErrors(prev => ({ ...prev, picture: 'Could not read this image. Try a different photo.' }));
     }
   };
 
@@ -381,7 +382,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
                   Drag and drop an image here, or click to select
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  Supports JPG, PNG, GIF, WebP up to 5MB
+                  Supports JPG, PNG, GIF, WebP up to 25MB
                 </p>
                 <input
                   type="file"

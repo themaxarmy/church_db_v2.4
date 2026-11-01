@@ -1,0 +1,24 @@
+# Netlify serves the built frontend from dist/ and runs the API (server/) as one function.
+[build]
+  command = "npm ci --prefix server && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  directory = "server/functions"
+  node_bundler = "esbuild"
+
+# The API lives on the same domain as the site, so the login cookie stays first-party.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# Single-page app: let React Router handle every other path.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

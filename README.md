@@ -100,6 +100,46 @@ themselves when the server starts.
 writes real data. For local testing, switch `DATABASE_URL` back to `sqlite:./local.db` (your SQLite
 settings are saved in `server/.env.backup`).
 
+## Deploying to Netlify
+
+Netlify hosts both parts on one domain. It serves the built frontend from `dist/`, and runs the API as a
+single Netlify Function (`server/functions/api.mjs`, which wraps the same Express app as `server/index.js`).
+`netlify.toml` rewrites `/api/*` to that function, so the login cookie stays first-party and no CORS setup
+is needed.
+
+**1. Update the database** if it was created before `migrations/002_rate_limits.sql`:
+
+```sh
+cd server
+npm run migrate
+```
+
+**2. Create the site.** In Netlify, choose **Add new site → Import an existing project** and pick this
+repository. The build settings come from `netlify.toml`, so leave them as they are.
+
+**3. Set environment variables** under **Site configuration → Environment variables**. The function reads
+them at runtime.
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | Neon's **pooled** connection string (the `-pooler` host), with `sslmode=verify-full` |
+| `JWT_SECRET` | A long random value, different from your local one |
+| `NODE_ENV` | `production` (makes the login cookie HTTPS-only) |
+| `FRONTEND_URL` | Your site's URL, e.g. `https://holy-hill.netlify.app` |
+
+Leave `VITE_API_URL` unset. The frontend calls `/api` on its own domain.
+
+**4. Deploy**, then sign in at your site. If you signed up somewhere other than this database, sign up
+again and run `npm run promote -- you@example.com` with `server/.env` pointing at the same database.
+
+**Limits to know about:**
+
+- Netlify rejects requests over about 6MB. Photos are shrunk in the browser to 1024px JPEGs before
+  upload, and the API accepts pictures up to about 1MB.
+- Rate limits (sign-in and sign-up: 20 per 15 minutes; public form: 10 per hour, per IP) are counted in
+  the `rate_limits` table, because function instances don't share memory.
+- The first request after a quiet spell can take a second or two while the function and Neon wake up.
+
 ## Using your own Postgres
 
 ```sh
