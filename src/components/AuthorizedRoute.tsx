@@ -18,17 +18,17 @@ export const AuthorizedRoute: React.FC<AuthorizedRouteProps> = ({ children, role
   if (user.status !== 'approved') {
     const rejected = user.status === 'rejected';
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
         <div className="max-w-md mx-auto text-center">
           {rejected ? (
-            <XCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
+            <XCircle className="w-16 h-16 text-red-600 dark:text-red-400 mx-auto mb-4" />
           ) : (
-            <Clock className="w-16 h-16 text-yellow-600 mx-auto mb-4" />
+            <Clock className="w-16 h-16 text-yellow-600 dark:text-yellow-400 mx-auto mb-4" />
           )}
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             {rejected ? 'Access Denied' : 'Account Pending Approval'}
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
             {rejected
               ? 'Your account has been rejected by an administrator. Please contact an administrator for more information.'
               : 'Your account is waiting for approval from an administrator. You will be able to view records once approved.'}
@@ -46,10 +46,10 @@ export const AuthorizedRoute: React.FC<AuthorizedRouteProps> = ({ children, role
 
   if (roles && !roles.includes(user.role)) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600">You don't have permission to view this page.</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Access Denied</h2>
+          <p className="text-gray-600 dark:text-gray-400">You don't have permission to view this page.</p>
         </div>
       </div>
     );

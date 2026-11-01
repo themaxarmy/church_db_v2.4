@@ -78,9 +78,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 dark:from-gray-900 via-white dark:via-gray-900 to-emerald-50 dark:to-gray-900">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200">
+      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -91,12 +91,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
                 <h1 className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                   Holy Hill Records
                 </h1>
-                <p className="text-sm text-gray-600">Staff Sign In</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Staff Sign In</p>
               </div>
             </div>
             <Link
               to="/collect"
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Public Form</span>
@@ -108,12 +108,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-md mx-auto">
           {/* Security Notice */}
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-8">
+          <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 rounded-xl p-4 mb-8">
             <div className="flex items-start gap-3">
-              <Shield className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+              <Shield className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
               <div>
-                <h3 className="font-semibold text-green-900 mb-1">Approval Required</h3>
-                <p className="text-sm text-green-800">
+                <h3 className="font-semibold text-green-900 dark:text-green-200 mb-1">Approval Required</h3>
+                <p className="text-sm text-green-800 dark:text-green-200">
                   New accounts must be approved by an administrator before records can be viewed.
                 </p>
               </div>
@@ -121,39 +121,39 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
           </div>
 
           {/* Auth Form */}
-          <div className="bg-white rounded-2xl shadow-xl p-8">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">{getTitle()}</h2>
-              <p className="text-gray-600">{getDescription()}</p>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{getTitle()}</h2>
+              <p className="text-gray-600 dark:text-gray-400">{getDescription()}</p>
             </div>
 
             {/* Status Messages */}
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
-                <p className="text-red-700 text-sm">{error}</p>
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl">
+                <p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
               </div>
             )}
 
             {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
-                <p className="text-green-700 text-sm">{success}</p>
+              <div className="mb-6 p-4 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 rounded-xl">
+                <p className="text-green-700 dark:text-green-300 text-sm">{success}</p>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Email Field */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                  <Mail className="w-5 h-5 text-gray-400 dark:text-gray-500 absolute left-3 top-1/2 transform -translate-y-1/2" />
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-lg"
+                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-lg"
                     placeholder="Enter your email"
                     required
                     disabled={isSubmitting}
@@ -164,17 +164,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
               {/* Password Field */}
               {mode !== 'reset' && (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                    <Lock className="w-5 h-5 text-gray-400 dark:text-gray-500 absolute left-3 top-1/2 transform -translate-y-1/2" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-lg"
+                      className="w-full pl-10 pr-12 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-lg"
                       placeholder="Enter your password"
                       required
                       minLength={mode === 'signup' ? 8 : undefined}
@@ -183,7 +183,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400"
                       disabled={isSubmitting}
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -200,7 +200,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
               >
                 {isSubmitting ? (
                   <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white dark:border-gray-800"></div>
                     Processing...
                   </>
                 ) : (
@@ -215,15 +215,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
                 <>
                   <Link
                     to="/auth/reset"
-                    className="text-green-600 hover:text-green-700 text-sm font-medium"
+                    className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 text-sm font-medium"
                   >
                     Forgot your password?
                   </Link>
-                  <div className="text-gray-600 text-sm">
+                  <div className="text-gray-600 dark:text-gray-400 text-sm">
                     Don't have an account?{' '}
                     <Link
                       to="/auth/signup"
-                      className="text-green-600 hover:text-green-700 font-medium"
+                      className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium"
                     >
                       Sign up
                     </Link>
@@ -232,11 +232,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
               )}
 
               {mode === 'signup' && (
-                <div className="text-gray-600 text-sm">
+                <div className="text-gray-600 dark:text-gray-400 text-sm">
                   Already have an account?{' '}
                   <Link
                     to="/auth/login"
-                    className="text-green-600 hover:text-green-700 font-medium"
+                    className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium"
                   >
                     Sign in
                   </Link>
@@ -244,11 +244,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
               )}
 
               {mode === 'reset' && (
-                <div className="text-gray-600 text-sm">
+                <div className="text-gray-600 dark:text-gray-400 text-sm">
                   Remember your password?{' '}
                   <Link
                     to="/auth/login"
-                    className="text-green-600 hover:text-green-700 font-medium"
+                    className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium"
                   >
                     Sign in
                   </Link>
@@ -259,7 +259,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
 
           {/* Footer */}
           <div className="mt-8 text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Access to records is limited to approved church administrators.
             </p>
           </div>

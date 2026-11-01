@@ -17,28 +17,28 @@ const ageOn = (dateOfBirth: string, today = new Date()) => {
 
 const inputClass = (error?: string) =>
   `w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg ${
-    error ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+    error ? 'border-red-500 bg-red-50 dark:bg-red-950/40' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
   }`;
 
 const FieldError: React.FC<{ message?: string }> = ({ message }) =>
   message ? (
-    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+    <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
       <AlertCircle className="w-4 h-4" />
       {message}
     </p>
   ) : null;
 
 const FieldLabel: React.FC<{ label: string; required?: boolean }> = ({ label, required }) => (
-  <label className="block text-sm font-semibold text-gray-700 mb-3">
+  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
     {label}
-    {required ? ' *' : <span className="text-gray-500 font-normal ml-1">(Optional)</span>}
+    {required ? ' *' : <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">(Optional)</span>}
   </label>
 );
 
 const SectionHeading: React.FC<{ title: string; note?: string }> = ({ title, note }) => (
-  <div className="pt-6 border-t border-gray-200">
-    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-    {note && <p className="text-sm text-gray-600 mt-1">{note}</p>}
+  <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+    {note && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{note}</p>}
   </div>
 );
 
@@ -185,12 +185,12 @@ export const RecordForm: React.FC<RecordFormProps> = ({
   );
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-8">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Name Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
               First Name *
             </label>
             <input
@@ -199,13 +199,13 @@ export const RecordForm: React.FC<RecordFormProps> = ({
               value={formData.firstName}
               onChange={handleInputChange}
               className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg ${
-                errors.firstName ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+                errors.firstName ? 'border-red-500 bg-red-50 dark:bg-red-950/40' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
               placeholder="Enter your first name"
               disabled={isSubmitting}
             />
             {errors.firstName && (
-              <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                 <AlertCircle className="w-4 h-4" />
                 {errors.firstName}
               </p>
@@ -213,7 +213,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
               Last Name *
             </label>
             <input
@@ -222,13 +222,13 @@ export const RecordForm: React.FC<RecordFormProps> = ({
               value={formData.lastName}
               onChange={handleInputChange}
               className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg ${
-                errors.lastName ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+                errors.lastName ? 'border-red-500 bg-red-50 dark:bg-red-950/40' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
               placeholder="Enter your last name"
               disabled={isSubmitting}
             />
             {errors.lastName && (
-              <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                 <AlertCircle className="w-4 h-4" />
                 {errors.lastName}
               </p>
@@ -238,16 +238,16 @@ export const RecordForm: React.FC<RecordFormProps> = ({
 
         {/* Other Names */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
             Other Names
-            <span className="text-gray-500 font-normal ml-1">(Optional)</span>
+            <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">(Optional)</span>
           </label>
           <input
             type="text"
             name="otherNames"
             value={formData.otherNames}
             onChange={handleInputChange}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-300 transition-all text-lg"
+            className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-300 dark:hover:border-gray-600 transition-all text-lg"
             placeholder="Enter any other names or middle names"
             disabled={isSubmitting}
           />
@@ -255,7 +255,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
 
         {/* Date of Birth */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
             Date of Birth *
           </label>
           <input
@@ -265,12 +265,12 @@ export const RecordForm: React.FC<RecordFormProps> = ({
             onChange={handleInputChange}
             max={new Date().toISOString().split('T')[0]}
             className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg ${
-              errors.dateOfBirth ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+              errors.dateOfBirth ? 'border-red-500 bg-red-50 dark:bg-red-950/40' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
             }`}
             disabled={isSubmitting}
           />
           {errors.dateOfBirth && (
-            <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
               <AlertCircle className="w-4 h-4" />
               {errors.dateOfBirth}
             </p>
@@ -336,17 +336,17 @@ export const RecordForm: React.FC<RecordFormProps> = ({
         {/* Picture Upload */}
         <SectionHeading title="Photo" />
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
             Profile Picture
-            <span className="text-gray-500 font-normal ml-1">(Optional)</span>
+            <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">(Optional)</span>
           </label>
           <div
             className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
               dragActive 
-                ? 'border-blue-500 bg-blue-50' 
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' 
                 : errors.picture 
-                  ? 'border-red-500 bg-red-50'
-                  : 'border-gray-300 hover:border-gray-400'
+                  ? 'border-red-500 bg-red-50 dark:bg-red-950/40'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
             }`}
             onDragOver={(e) => {
               e.preventDefault();
@@ -360,14 +360,14 @@ export const RecordForm: React.FC<RecordFormProps> = ({
                 <img
                   src={formData.picture}
                   alt="Uploaded preview"
-                  className="w-32 h-32 object-cover rounded-full mx-auto border-4 border-white shadow-lg"
+                  className="w-32 h-32 object-cover rounded-full mx-auto border-4 border-white dark:border-gray-800 shadow-lg"
                 />
                 <div className="space-y-2">
-                  <p className="text-green-600 font-medium">Image uploaded successfully!</p>
+                  <p className="text-green-600 dark:text-green-400 font-medium">Image uploaded successfully!</p>
                   <button
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, picture: null }))}
-                    className="text-red-600 hover:text-red-700 text-sm font-medium underline"
+                    className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-sm font-medium underline"
                     disabled={isSubmitting}
                   >
                     Remove Image
@@ -376,11 +376,11 @@ export const RecordForm: React.FC<RecordFormProps> = ({
               </div>
             ) : (
               <>
-                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-2 text-lg">
+                <Upload className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                <p className="text-gray-600 dark:text-gray-400 mb-2 text-lg">
                   Drag and drop an image here, or click to select
                 </p>
-                <p className="text-sm text-gray-500 mb-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                   Supports JPG, PNG, GIF, WebP up to 5MB
                 </p>
                 <input
@@ -401,7 +401,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
             )}
           </div>
           {errors.picture && (
-            <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
               <AlertCircle className="w-4 h-4" />
               {errors.picture}
             </p>
@@ -409,12 +409,12 @@ export const RecordForm: React.FC<RecordFormProps> = ({
         </div>
 
         {/* Form Actions */}
-        <div className="flex gap-4 pt-6 border-t border-gray-200">
+        <div className="flex gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
           <button
             type="button"
             onClick={onCancel ?? resetForm}
             disabled={isSubmitting}
-            className="flex-1 px-6 py-4 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-6 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {cancelLabel}
           </button>
@@ -425,7 +425,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
           >
             {isSubmitting ? (
               <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white dark:border-gray-800"></div>
                 {submittingLabel}
               </>
             ) : (

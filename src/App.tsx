@@ -7,11 +7,13 @@ import { DataCollection } from './pages/DataCollection';
 import { AuthPage } from './pages/AuthPage';
 import { UserManagement } from './pages/UserManagement';
 import { EditRecord } from './pages/EditRecord';
+import { ThemeToggle } from './components/ThemeToggle';
 
 function App() {
   return (
     <AuthProvider>
       <Router>
+        <ThemeToggle />
         <Routes>
           {/* Public routes */}
           <Route path="/collect" element={<DataCollection />} />
