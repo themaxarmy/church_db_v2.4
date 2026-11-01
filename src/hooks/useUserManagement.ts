@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../lib/api';
 import type { User, UserRole } from '../types';
 
-export const useUserManagement = () => {
+// `enabled` is false for anyone but super admins, who are the only ones allowed to list users.
+export const useUserManagement = (enabled = true) => {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
@@ -29,8 +30,8 @@ export const useUserManagement = () => {
     replaceUser(await apiClient.updateUserRole(userId, role));
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    if (enabled) fetchUsers();
+  }, [enabled, fetchUsers]);
 
   return { users, loading, error, approveUser, rejectUser, updateUserRole, refetch: fetchUsers };
 };

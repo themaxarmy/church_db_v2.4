@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from './config.js';
 import { users, records, rateLimits } from './db.js';
+import MINISTRIES from '../shared/ministries.json' with { type: 'json' };
 
 // The Express app, shared by the local server (index.js) and the Netlify Function (functions/api.mjs).
 const app = express();
@@ -140,8 +141,8 @@ const cleanText = (value, label, required, max = MAX_NAME_LENGTH) => {
   return trimmed || null;
 };
 
-const cleanPhone = (value, label) => {
-  const phone = cleanText(value, label, false, 30);
+const cleanPhone = (value, label, required = false) => {
+  const phone = cleanText(value, label, required, 30);
   if (phone && !PHONE_RE.test(phone)) throw new HttpError(400, `${label} is not a valid phone number`);
   return phone;
 };
@@ -152,18 +153,17 @@ const cleanEmail = (value) => {
   return email && email.toLowerCase();
 };
 
-const cleanGender = (value) => {
-  if (value === undefined) return undefined;
-  if (value === null || value === '') return null;
-  if (!GENDERS.includes(value)) throw new HttpError(400, `Gender must be one of: ${GENDERS.join(', ')}`);
+const cleanGender = (value, required) => {
+  if (value === undefined && !required) return undefined;
+  if (!GENDERS.includes(value)) throw new HttpError(400, 'Gender must be male or female');
   return value;
 };
 
-const ageOn = (dateOfBirth, today = new Date()) => {
-  const [year, month, day] = dateOfBirth.split('-').map(Number);
-  const hadBirthday =
-    today.getMonth() + 1 > month || (today.getMonth() + 1 === month && today.getDate() >= day);
-  return today.getFullYear() - year - (hadBirthday ? 0 : 1);
+// Ministry is optional, but must be one of the shared list (shared/ministries.json) so records stay consistent.
+const cleanMinistry = (value) => {
+  const ministry = cleanText(value, 'Ministry', false, 100);
+  if (ministry && !MINISTRIES.includes(ministry)) throw new HttpError(400, 'Choose a ministry from the list');
+  return ministry;
 };
 
 const cleanDateOfBirth = (value, required) => {
@@ -200,26 +200,32 @@ const cleanRecord = (body, { partial }) => {
     otherNames: cleanText(body?.otherNames, 'Other names', false),
     dateOfBirth: cleanDateOfBirth(body?.dateOfBirth, !partial),
     picture: cleanPicture(body?.picture),
-    gender: cleanGender(body?.gender),
+    gender: cleanGender(body?.gender, !partial),
     phone: cleanPhone(body?.phone, 'Phone'),
     email: cleanEmail(body?.email),
     address: cleanText(body?.address, 'Address', false, 500),
-    ministry: cleanText(body?.ministry, 'Ministry', false, 100),
+    ministry: cleanMinistry(body?.ministry),
     guardianName: cleanText(body?.guardianName, 'Parent or guardian name', false),
     guardianPhone: cleanPhone(body?.guardianPhone, 'Parent or guardian phone'),
-    emergencyContactName: cleanText(body?.emergencyContactName, 'Emergency contact name', false),
-    emergencyContactPhone: cleanPhone(body?.emergencyContactPhone, 'Emergency contact phone'),
+    emergencyContactName: cleanText(body?.emergencyContactName, 'Emergency contact name', !partial),
+    emergencyContactPhone: cleanPhone(body?.emergencyContactPhone, 'Emergency contact phone', !partial),
     emergencyContactRelationship: cleanText(body?.emergencyContactRelationship, 'Emergency contact relationship', false, 100),
   };
-  if (!partial) requireGuardianIfMinor(record);
+  if (partial) {
+    // An edit may leave a required field out, but not blank it.
+    for (const [field, label] of REQUIRED_ON_EDIT) {
+      if (record[field] === null) throw new HttpError(400, `${label} cannot be removed`);
+    }
+  }
   return record;
 };
 
-const requireGuardianIfMinor = (record) => {
-  if (ageOn(record.dateOfBirth) < 18 && !(record.guardianName && record.guardianPhone)) {
-    throw new HttpError(400, "A parent or guardian's name and phone are required for anyone under 18");
-  }
-};
+const REQUIRED_ON_EDIT = [
+  ['firstName', 'First name'],
+  ['lastName', 'Last name'],
+  ['emergencyContactName', 'Emergency contact name'],
+  ['emergencyContactPhone', 'Emergency contact phone'],
+];
 
 // --- Routes ---
 
@@ -293,14 +299,6 @@ api.get('/records/:id', requireAuth, requireApproved, route(async (req, res) => 
 api.put('/records/:id', requireAuth, requireAdmin, route(async (req, res) => {
   const id = requireUuid(req.params.id);
   const updates = cleanRecord(req.body, { partial: true });
-  if (updates.firstName === null || updates.lastName === null) {
-    throw new HttpError(400, 'First and last name cannot be removed');
-  }
-  const existing = await records.findById(id);
-  if (!existing) throw new HttpError(404, 'Record not found');
-  const changed = Object.fromEntries(Object.entries(updates).filter(([, value]) => value !== undefined));
-  requireGuardianIfMinor({ ...existing, ...changed });
-
   const record = await records.update(id, updates, req.user.id);
   if (!record) throw new HttpError(404, 'Record not found');
   res.json(record);

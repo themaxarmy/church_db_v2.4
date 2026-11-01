@@ -1,59 +1,60 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { UsersProvider } from './contexts/UsersContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthorizedRoute } from './components/AuthorizedRoute';
-import { Dashboard } from './pages/Dashboard';
+import { AppShell } from './components/AppShell';
+import { Records } from './pages/Records';
 import { DataCollection } from './pages/DataCollection';
 import { AuthPage } from './pages/AuthPage';
 import { UserManagement } from './pages/UserManagement';
 import { EditRecord } from './pages/EditRecord';
-import { ThemeToggle } from './components/ThemeToggle';
+import { NewRecord } from './pages/NewRecord';
 
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <ThemeToggle />
         <Routes>
-          {/* Public routes */}
+          {/* Public */}
           <Route path="/collect" element={<DataCollection />} />
           <Route path="/auth/login" element={<AuthPage mode="login" />} />
           <Route path="/auth/signup" element={<AuthPage mode="signup" />} />
           <Route path="/auth/reset" element={<AuthPage mode="reset" />} />
-          
-          {/* Protected routes */}
-          <Route 
-            path="/" 
+
+          {/* Signed-in, approved staff, inside the app's top bar */}
+          <Route
             element={
               <ProtectedRoute>
                 <AuthorizedRoute>
-                  <Dashboard />
-                </AuthorizedRoute>
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route
-            path="/records/:id/edit"
-            element={
-              <ProtectedRoute>
-                <AuthorizedRoute roles={['admin', 'super_admin']}>
-                  <EditRecord />
+                  <UsersProvider>
+                    <AppShell />
+                  </UsersProvider>
                 </AuthorizedRoute>
               </ProtectedRoute>
             }
-          />
-
-          <Route 
-            path="/users" 
-            element={
-              <ProtectedRoute>
+          >
+            <Route index element={<Records />} />
+            <Route path="records/new" element={<NewRecord />} />
+            <Route
+              path="records/:id/edit"
+              element={
+                <AuthorizedRoute roles={['admin', 'super_admin']}>
+                  <EditRecord />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="users"
+              element={
                 <AuthorizedRoute roles={['super_admin']}>
                   <UserManagement />
                 </AuthorizedRoute>
-              </ProtectedRoute>
-            } 
-          />
+              }
+            />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </AuthProvider>

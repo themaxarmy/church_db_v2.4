@@ -1,46 +1,45 @@
-import React, { useState } from 'react';
-import { Upload, Save, AlertCircle } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Upload, UserRound } from 'lucide-react';
 import type { Gender, RecordInput } from '../types';
 import { EMPTY_FORM } from '../lib/records';
 import { resizeImage } from '../lib/image';
+import { MINISTRIES } from '../lib/ministries';
+import { Field, Spinner } from './ui';
 
 type TextFieldName = Exclude<keyof RecordInput, 'picture' | 'gender'>;
+type Errors = Partial<Record<keyof RecordInput, string>>;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9 ()\-.]{6,30}$/;
 const PHONE_FIELDS = ['phone', 'guardianPhone', 'emergencyContactPhone'] as const;
+const REQUIRED: [TextFieldName, string][] = [
+  ['firstName', 'Enter a first name'],
+  ['lastName', 'Enter a last name'],
+  ['dateOfBirth', 'Enter a date of birth'],
+  ['emergencyContactName', 'Enter an emergency contact'],
+  ['emergencyContactPhone', "Enter the emergency contact's phone"],
+];
+const GENDERS: { value: Gender; label: string }[] = [
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
+];
 
-const ageOn = (dateOfBirth: string, today = new Date()) => {
-  const [year, month, day] = dateOfBirth.split('-').map(Number);
-  const hadBirthday = today.getMonth() + 1 > month || (today.getMonth() + 1 === month && today.getDate() >= day);
-  return today.getFullYear() - year - (hadBirthday ? 0 : 1);
-};
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
-const inputClass = (error?: string) =>
-  `w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg ${
-    error ? 'border-red-500 bg-red-50 dark:bg-red-950/40' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-  }`;
-
-const FieldError: React.FC<{ message?: string }> = ({ message }) =>
-  message ? (
-    <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-      <AlertCircle className="w-4 h-4" />
-      {message}
-    </p>
-  ) : null;
-
-const FieldLabel: React.FC<{ label: string; required?: boolean }> = ({ label, required }) => (
-  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-    {label}
-    {required ? ' *' : <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">(Optional)</span>}
-  </label>
-);
-
-const SectionHeading: React.FC<{ title: string; note?: string }> = ({ title, note }) => (
-  <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
-    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
-    {note && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{note}</p>}
-  </div>
+// One titled block of the form: heading and help on the left, fields on the right (stacked on phones).
+const Section: React.FC<{ title: string; description?: string; tinted?: boolean; children: React.ReactNode }> = ({
+  title,
+  description,
+  tinted,
+  children,
+}) => (
+  <section className={`flex flex-wrap gap-x-8 gap-y-4 border-b border-line p-5 sm:p-7 ${tinted ? 'bg-accent-soft/40' : ''}`}>
+    <div className="w-full sm:w-56 sm:shrink-0">
+      <h2 className="text-base font-semibold">{title}</h2>
+      {description && <p className="mt-1 text-ink-muted">{description}</p>}
+    </div>
+    <div className="grid min-w-0 flex-1 basis-[420px] grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+  </section>
 );
 
 interface RecordFormProps {
@@ -53,9 +52,11 @@ interface RecordFormProps {
   // Receives trimmed values. Handle errors inside; the form only tracks the pending state.
   onSubmit: (record: RecordInput) => Promise<void>;
   onChange?: () => void;
+  // Shown beside the buttons, e.g. the consent line on the public form.
+  footerNote?: React.ReactNode;
 }
 
-// The record fields, shared by the public form and the edit page.
+// The record fields, shared by the public form, Add record and Edit record.
 export const RecordForm: React.FC<RecordFormProps> = ({
   initialValues = EMPTY_FORM,
   submitLabel,
@@ -64,94 +65,68 @@ export const RecordForm: React.FC<RecordFormProps> = ({
   onCancel,
   onSubmit,
   onChange,
+  footerNote,
 }) => {
   const [formData, setFormData] = useState<RecordInput>(initialValues);
-  const [dragActive, setDragActive] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Errors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const isMinor = Boolean(formData.dateOfBirth) && ageOn(formData.dateOfBirth) < 18;
+  // Keeps an older record's ministry selectable even if it isn't in today's list.
+  const ministryOptions =
+    initialValues.ministry && !MINISTRIES.includes(initialValues.ministry)
+      ? [...MINISTRIES, initialValues.ministry]
+      : MINISTRIES;
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+  const update = <K extends keyof RecordInput>(name: K, value: RecordInput[K]) => {
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }));
     onChange?.();
   };
 
-  const handleImageUpload = async (file: File) => {
-    if (!file || !['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
-      setErrors(prev => ({ ...prev, picture: 'Please select a valid image file' }));
+  const handleImage = async (file: File | undefined) => {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      setErrors(prev => ({ ...prev, picture: 'Choose a JPG, PNG, GIF or WebP image' }));
       return;
     }
-    if (file.size > 25 * 1024 * 1024) { // Shrunk before upload, but very large files can stall phones
-      setErrors(prev => ({ ...prev, picture: 'Image size must be less than 25MB' }));
+    if (file.size > 25 * 1024 * 1024) {
+      // Photos are shrunk before upload, but very large files can stall phones.
+      setErrors(prev => ({ ...prev, picture: 'Choose an image smaller than 25MB' }));
       return;
     }
-
     try {
-      const picture = await resizeImage(file);
-      setFormData(prev => ({ ...prev, picture }));
-      setErrors(prev => ({ ...prev, picture: '' }));
-      onChange?.();
+      update('picture', await resizeImage(file));
     } catch {
       setErrors(prev => ({ ...prev, picture: 'Could not read this image. Try a different photo.' }));
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    const files = e.dataTransfer.files;
-    if (files[0]) {
-      handleImageUpload(files[0]);
+  const validate = () => {
+    const next: Errors = {};
+    for (const [field, message] of REQUIRED) {
+      if (!formData[field].trim()) next[field] = message;
     }
-  };
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files[0]) {
-      handleImageUpload(files[0]);
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
-    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
-    if (!formData.dateOfBirth) newErrors.dateOfBirth = 'Date of birth is required';
-    
-    // Validate date is not in the future
-    if (formData.dateOfBirth && new Date(formData.dateOfBirth) > new Date()) {
-      newErrors.dateOfBirth = 'Date of birth cannot be in the future';
-    }
-
-    if (isMinor) {
-      if (!formData.guardianName.trim()) newErrors.guardianName = 'Required for anyone under 18';
-      if (!formData.guardianPhone.trim()) newErrors.guardianPhone = 'Required for anyone under 18';
-    }
+    if (!formData.gender) next.gender = 'Choose male or female';
+    if (formData.dateOfBirth && formData.dateOfBirth > todayIso()) next.dateOfBirth = "Date of birth can't be in the future";
     for (const field of PHONE_FIELDS) {
       const value = formData[field].trim();
-      if (value && !PHONE_RE.test(value)) newErrors[field] = 'Enter a valid phone number';
+      if (value && !PHONE_RE.test(value)) next[field] = 'Enter a valid phone number';
     }
-    if (formData.email.trim() && !EMAIL_RE.test(formData.email.trim())) {
-      newErrors.email = 'Enter a valid email address';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    if (formData.email.trim() && !EMAIL_RE.test(formData.email.trim())) next.email = 'Enter a valid email address';
+    setErrors(next);
+    return next;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
+    const found = validate();
+    if (Object.keys(found).length > 0) {
+      // Move focus to the first field with a problem.
+      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
       return;
     }
-
     setIsSubmitting(true);
     try {
       const trimmed = Object.fromEntries(
@@ -163,281 +138,186 @@ export const RecordForm: React.FC<RecordFormProps> = ({
     }
   };
 
-  const resetForm = () => {
+  const reset = () => {
     setFormData(initialValues);
     setErrors({});
     onChange?.();
   };
 
-  const textField = (name: TextFieldName, label: string, options: { type?: string; placeholder?: string; required?: boolean } = {}) => (
-    <div>
-      <FieldLabel label={label} required={options.required} />
-      <input
-        type={options.type ?? 'text'}
-        name={name}
-        value={formData[name]}
-        onChange={handleInputChange}
-        className={inputClass(errors[name])}
-        placeholder={options.placeholder}
-        disabled={isSubmitting}
-      />
-      <FieldError message={errors[name]} />
-    </div>
+  const text = (
+    name: TextFieldName,
+    label: string,
+    options: { type?: string; placeholder?: string; required?: boolean; wide?: boolean; hint?: string; autoComplete?: string } = {},
+  ) => (
+    <Field label={label} required={options.required} error={errors[name]} hint={options.hint} className={options.wide ? 'sm:col-span-2' : ''}>
+      {props => (
+        <input
+          {...props}
+          type={options.type ?? 'text'}
+          name={name}
+          value={formData[name]}
+          onChange={e => update(name, e.target.value)}
+          placeholder={options.placeholder}
+          autoComplete={options.autoComplete}
+          max={options.type === 'date' ? todayIso() : undefined}
+          disabled={isSubmitting}
+          className="field-input"
+        />
+      )}
+    </Field>
   );
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Name Fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-              First Name *
-            </label>
-            <input
-              type="text"
-              name="firstName"
-              value={formData.firstName}
-              onChange={handleInputChange}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg ${
-                errors.firstName ? 'border-red-500 bg-red-50 dark:bg-red-950/40' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-              placeholder="Enter your first name"
+    <form ref={formRef} onSubmit={handleSubmit} noValidate className="card overflow-hidden">
+      <Section title="About you" description="Fields marked * are required.">
+        {text('firstName', 'First name', { required: true, autoComplete: 'given-name' })}
+        {text('lastName', 'Last name', { required: true, autoComplete: 'family-name' })}
+        {text('otherNames', 'Other names', { wide: true, placeholder: "Middle names or names you're also known by" })}
+        {text('dateOfBirth', 'Date of birth', { type: 'date', required: true, autoComplete: 'bday' })}
+        <Field label="Ministry or department" error={errors.ministry}>
+          {props => (
+            <select
+              {...props}
+              name="ministry"
+              value={formData.ministry}
+              onChange={e => update('ministry', e.target.value)}
               disabled={isSubmitting}
-            />
-            {errors.firstName && (
-              <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                {errors.firstName}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-              Last Name *
-            </label>
-            <input
-              type="text"
-              name="lastName"
-              value={formData.lastName}
-              onChange={handleInputChange}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg ${
-                errors.lastName ? 'border-red-500 bg-red-50 dark:bg-red-950/40' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-              placeholder="Enter your last name"
-              disabled={isSubmitting}
-            />
-            {errors.lastName && (
-              <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                {errors.lastName}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Other Names */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-            Other Names
-            <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">(Optional)</span>
-          </label>
-          <input
-            type="text"
-            name="otherNames"
-            value={formData.otherNames}
-            onChange={handleInputChange}
-            className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-300 dark:hover:border-gray-600 transition-all text-lg"
-            placeholder="Enter any other names or middle names"
-            disabled={isSubmitting}
-          />
-        </div>
-
-        {/* Date of Birth */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-            Date of Birth *
-          </label>
-          <input
-            type="date"
-            name="dateOfBirth"
-            value={formData.dateOfBirth}
-            onChange={handleInputChange}
-            max={new Date().toISOString().split('T')[0]}
-            className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg ${
-              errors.dateOfBirth ? 'border-red-500 bg-red-50 dark:bg-red-950/40' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-            }`}
-            disabled={isSubmitting}
-          />
-          {errors.dateOfBirth && (
-            <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {errors.dateOfBirth}
-            </p>
+              className="field-input"
+            >
+              <option value="">Not in a ministry yet</option>
+              {ministryOptions.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
           )}
-        </div>
-
-        {/* Gender */}
-        <div>
-          <FieldLabel label="Gender" />
-          <select
-            name="gender"
-            value={formData.gender ?? ''}
-            onChange={e => setFormData(prev => ({ ...prev, gender: (e.target.value || null) as Gender | null }))}
-            className={inputClass()}
-            disabled={isSubmitting}
-          >
-            <option value="">Prefer not to say</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-          </select>
-        </div>
-
-        {/* Church */}
-        {textField('ministry', 'Ministry or Group', { placeholder: 'e.g. Teens, Choir, Ushers' })}
-
-        {/* Contact */}
-        <SectionHeading title="Contact Details" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {textField('phone', 'Phone', { type: 'tel', placeholder: 'Your phone number' })}
-          {textField('email', 'Email', { type: 'email', placeholder: 'you@example.com' })}
-        </div>
-        <div>
-          <FieldLabel label="Address" />
-          <textarea
-            name="address"
-            value={formData.address}
-            onChange={handleInputChange}
-            rows={2}
-            className={inputClass(errors.address)}
-            placeholder="Street, town, postcode"
-            disabled={isSubmitting}
-          />
-        </div>
-
-        {/* Parent / Guardian */}
-        <SectionHeading
-          title="Parent or Guardian"
-          note={isMinor ? 'Required because you are under 18.' : 'Required for anyone under 18.'}
-        />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {textField('guardianName', 'Name', { placeholder: 'Parent or guardian name', required: isMinor })}
-          {textField('guardianPhone', 'Phone', { type: 'tel', placeholder: 'Parent or guardian phone', required: isMinor })}
-        </div>
-
-        {/* Emergency Contact */}
-        <SectionHeading title="Emergency Contact" note="Someone we can call in an emergency." />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {textField('emergencyContactName', 'Name', { placeholder: 'Full name' })}
-          {textField('emergencyContactPhone', 'Phone', { type: 'tel', placeholder: 'Phone number' })}
-        </div>
-        {textField('emergencyContactRelationship', 'Relationship', { placeholder: 'e.g. Mother, Uncle, Friend' })}
-
-        {/* Picture Upload */}
-        <SectionHeading title="Photo" />
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-            Profile Picture
-            <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">(Optional)</span>
-          </label>
-          <div
-            className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-              dragActive 
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' 
-                : errors.picture 
-                  ? 'border-red-500 bg-red-50 dark:bg-red-950/40'
-                  : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-            }`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragActive(true);
-            }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={handleDrop}
-          >
-            {formData.picture ? (
-              <div className="space-y-4">
-                <img
-                  src={formData.picture}
-                  alt="Uploaded preview"
-                  className="w-32 h-32 object-cover rounded-full mx-auto border-4 border-white dark:border-gray-800 shadow-lg"
-                />
-                <div className="space-y-2">
-                  <p className="text-green-600 dark:text-green-400 font-medium">Image uploaded successfully!</p>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, picture: null }))}
-                    className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-sm font-medium underline"
+        </Field>
+        <fieldset className="sm:col-span-2" aria-describedby={errors.gender ? 'gender-error' : undefined}>
+          <legend className="mb-1.5 font-medium">
+            Gender<span aria-hidden="true" className="ml-0.5 text-accent-text">*</span>
+            <span className="sr-only"> (required)</span>
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            {GENDERS.map(({ value, label }) => {
+              const checked = formData.gender === value;
+              return (
+                <label
+                  key={value}
+                  className={`flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border px-4 transition-colors ${
+                    checked ? 'border-primary bg-primary-soft' : errors.gender ? 'border-danger' : 'border-line-strong hover:bg-surface-muted'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="gender"
+                    value={value}
+                    checked={checked}
+                    onChange={() => update('gender', value)}
                     disabled={isSubmitting}
-                  >
-                    Remove Image
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <Upload className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                <p className="text-gray-600 dark:text-gray-400 mb-2 text-lg">
-                  Drag and drop an image here, or click to select
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  Supports JPG, PNG, GIF, WebP up to 25MB
-                </p>
+                    aria-invalid={Boolean(errors.gender)}
+                    className="accent-primary"
+                  />
+                  {label}
+                </label>
+              );
+            })}
+          </div>
+          {errors.gender && (
+            <p id="gender-error" className="mt-1.5 text-xs font-medium text-danger-text">{errors.gender}</p>
+          )}
+        </fieldset>
+      </Section>
+
+      <Section title="Contact" description="How the church can reach you.">
+        {text('phone', 'Phone', { type: 'tel', autoComplete: 'tel' })}
+        {text('email', 'Email', { type: 'email', autoComplete: 'email' })}
+        <Field label="Address" error={errors.address} className="sm:col-span-2">
+          {props => (
+            <textarea
+              {...props}
+              name="address"
+              rows={2}
+              value={formData.address}
+              onChange={e => update('address', e.target.value)}
+              placeholder="Street, town"
+              autoComplete="street-address"
+              disabled={isSubmitting}
+              className="field-input resize-y"
+            />
+          )}
+        </Field>
+      </Section>
+
+      <Section title="Emergency contact" description="Someone we can call if something happens at church.">
+        {text('emergencyContactName', 'Name', { required: true })}
+        {text('emergencyContactPhone', 'Phone', { type: 'tel', required: true })}
+        {text('emergencyContactRelationship', 'Relationship', { placeholder: 'e.g. Mother, Husband, Friend' })}
+      </Section>
+
+      <Section title="Parent or guardian" description="For children and teenagers. Optional.">
+        {text('guardianName', 'Name')}
+        {text('guardianPhone', 'Phone', { type: 'tel' })}
+      </Section>
+
+      <Section title="Photo" description="Optional. Helps staff recognise you.">
+        <div
+          className={`flex flex-wrap items-center gap-4 rounded-lg sm:col-span-2 ${dragActive ? 'bg-primary-soft' : ''}`}
+          onDragOver={e => {
+            e.preventDefault();
+            setDragActive(true);
+          }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={e => {
+            e.preventDefault();
+            setDragActive(false);
+            handleImage(e.dataTransfer.files[0]);
+          }}
+        >
+          {formData.picture ? (
+            <img src={formData.picture} alt="Selected photo" className="h-[72px] w-[72px] rounded-full object-cover" />
+          ) : (
+            <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-dashed border-line-strong bg-chip text-ink-subtle">
+              <UserRound className="h-7 w-7" />
+            </span>
+          )}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap gap-2">
+              <label className="btn btn-secondary cursor-pointer">
+                <Upload className="h-4 w-4" />
+                {formData.picture ? 'Change photo' : 'Upload a photo'}
                 <input
                   type="file"
-                  accept="image/*"
-                  onChange={handleFileInput}
-                  className="hidden"
-                  id="file-upload"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="sr-only"
                   disabled={isSubmitting}
+                  onChange={e => {
+                    handleImage(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
                 />
-                <label
-                  htmlFor="file-upload"
-                  className="inline-block px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 cursor-pointer transition-colors font-medium disabled:opacity-50"
-                >
-                  Choose File
-                </label>
-              </>
-            )}
-          </div>
-          {errors.picture && (
-            <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {errors.picture}
+              </label>
+              {formData.picture && (
+                <button type="button" className="btn btn-ghost" onClick={() => update('picture', null)} disabled={isSubmitting}>
+                  Remove
+                </button>
+              )}
+            </div>
+            <p className={`text-xs ${errors.picture ? 'font-medium text-danger-text' : 'text-ink-muted'}`}>
+              {errors.picture ?? "JPG, PNG or WebP. We'll resize it for you."}
             </p>
-          )}
+          </div>
         </div>
+      </Section>
 
-        {/* Form Actions */}
-        <div className="flex gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <button
-            type="button"
-            onClick={onCancel ?? resetForm}
-            disabled={isSubmitting}
-            className="flex-1 px-6 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
-          >
-            {isSubmitting ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white dark:border-gray-800"></div>
-                {submittingLabel}
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                {submitLabel}
-              </>
-            )}
-          </button>
-        </div>
-      </form>
-    </div>
+      <div className="flex flex-wrap items-center gap-3 bg-surface-muted px-5 py-4 sm:px-7">
+        <div className="min-w-0 flex-1 basis-64 text-xs text-ink-muted">{footerNote}</div>
+        <button type="button" className="btn btn-ghost" onClick={onCancel ?? reset} disabled={isSubmitting}>
+          {cancelLabel}
+        </button>
+        <button type="submit" className="btn btn-primary min-h-[44px] px-5" disabled={isSubmitting}>
+          {isSubmitting && <Spinner className="h-4 w-4" />}
+          {isSubmitting ? submittingLabel : submitLabel}
+        </button>
+      </div>
+    </form>
   );
 };

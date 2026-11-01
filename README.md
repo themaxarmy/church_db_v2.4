@@ -153,16 +153,22 @@ Then set `DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/holy_hill_recor
 
 ## What a record holds
 
+**Required** fields are marked ✱. The API enforces the same rules as the form.
+
 | Group | Fields |
 | --- | --- |
-| Person | First, last and other names; date of birth; gender; photo |
+| Person | First name ✱, last name ✱, other names; date of birth ✱; gender ✱ (male or female); photo |
 | Contact | Phone, email, address |
-| Parent or guardian | Name, phone (required for anyone under 18) |
-| Emergency contact | Name, phone, relationship |
-| Church | Ministry or group |
+| Emergency contact | Name ✱, phone ✱, relationship |
+| Parent or guardian | Name, phone (optional at any age) |
+| Church | Ministry, picked from a fixed list |
 | Tracking (set by the server) | Who added it (blank for the public form), who last updated it, when it was archived |
 
-Archived records stay in the database but are hidden from the dashboard unless you tick **Show archived**.
+**Ministries** come from [shared/ministries.json](shared/ministries.json). Both the form and the API read that file, so
+add, rename or remove a ministry there and redeploy. A record whose ministry is no longer on the list keeps it and
+can still be edited.
+
+Archived records stay in the database but are hidden from the Records page unless you turn on **Show archived**.
 
 ## Pages
 
@@ -170,9 +176,14 @@ Archived records stay in the database but are hidden from the dashboard unless y
 | --- | --- | --- |
 | `/collect` | Anyone | Public form for submitting a record |
 | `/auth/login`, `/auth/signup` | Anyone | Staff sign in and sign up |
-| `/` | Approved users | Dashboard: search records, view details and export CSV. Admins can also archive, restore and delete records. |
-| `/records/:id/edit` | Admins and super admins | Edit a record (the pencil icon on the dashboard) |
-| `/users` | Super admins | Approve or reject sign-ups and change roles |
+| `/` | Approved users | Records: search, filter by ministry, open a person's details and export CSV. Admins can also edit, archive, restore and delete. |
+| `/records/new` | Approved users | Add a record as staff (recorded as added by you) |
+| `/records/:id/edit` | Admins and super admins | Edit a record |
+| `/users` | Super admins | Approve sign-ups (choosing their role), reject them, change roles and remove access |
+
+The look is set by colour tokens in [src/index.css](src/index.css) (light and dark) and
+[tailwind.config.js](tailwind.config.js); shared pieces like buttons, fields and dialogs are in
+[src/components/ui.tsx](src/components/ui.tsx).
 
 **Roles**
 

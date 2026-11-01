@@ -2,34 +2,45 @@ import React, { useEffect, useState } from 'react';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { getTheme, saveTheme, watchSystemTheme, type Theme } from '../lib/theme';
 
-const NEXT: Record<Theme, Theme> = { system: 'light', light: 'dark', dark: 'system' };
-const LABELS: Record<Theme, string> = { system: 'System', light: 'Light', dark: 'Dark' };
-const ICONS: Record<Theme, React.ReactNode> = {
-  system: <Monitor className="w-5 h-5" />,
-  light: <Sun className="w-5 h-5" />,
-  dark: <Moon className="w-5 h-5" />,
-};
+const OPTIONS: { value: Theme; label: string; icon: React.ReactNode }[] = [
+  { value: 'light', label: 'Light', icon: <Sun className="h-4 w-4" /> },
+  { value: 'dark', label: 'Dark', icon: <Moon className="h-4 w-4" /> },
+  { value: 'system', label: 'System', icon: <Monitor className="h-4 w-4" /> },
+];
 
-// Floating button on every page: cycles System → Light → Dark.
-export const ThemeToggle: React.FC = () => {
+// Light / Dark / System switch. The current choice is highlighted; `labelled` shows the words too.
+export const ThemeToggle: React.FC<{ labelled?: boolean }> = ({ labelled = false }) => {
   const [theme, setTheme] = useState<Theme>(getTheme);
 
   useEffect(() => watchSystemTheme(), []);
 
-  const cycle = () => {
-    const next = NEXT[theme];
+  const choose = (next: Theme) => {
     saveTheme(next);
     setTheme(next);
   };
 
   return (
-    <button
-      onClick={cycle}
-      className="fixed bottom-4 right-4 z-50 p-3 rounded-full shadow-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
-      title={`Theme: ${LABELS[theme]} (click for ${LABELS[NEXT[theme]]})`}
-      aria-label={`Theme: ${LABELS[theme]}. Switch to ${LABELS[NEXT[theme]]}.`}
-    >
-      {ICONS[theme]}
-    </button>
+    <div role="radiogroup" aria-label="Theme" className="inline-flex gap-0.5 rounded-[10px] border border-line bg-chip p-[3px]">
+      {OPTIONS.map(({ value, label, icon }) => {
+        const active = theme === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={labelled ? undefined : `${label} theme`}
+            title={`${label} theme`}
+            onClick={() => choose(value)}
+            className={`flex h-8 items-center justify-center gap-1.5 rounded-[7px] text-sm font-medium transition-colors ${
+              labelled ? 'flex-1 px-3' : 'w-8'
+            } ${active ? 'bg-surface text-ink shadow-sm' : 'text-ink-muted hover:text-ink'}`}
+          >
+            {icon}
+            {labelled && label}
+          </button>
+        );
+      })}
+    </div>
   );
 };

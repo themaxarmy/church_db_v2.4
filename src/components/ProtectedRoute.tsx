@@ -1,28 +1,19 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Spinner } from './ui';
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-}
-
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+// Sends signed-out visitors to the sign-in page.
+export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center text-primary">
+        <Spinner className="h-7 w-7" />
       </div>
     );
   }
-
-  if (!user) {
-    return <Navigate to="/auth/login" replace />;
-  }
-
+  if (!user) return <Navigate to="/auth/login" replace />;
   return <>{children}</>;
 };
